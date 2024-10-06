@@ -187,7 +187,11 @@ def is_group_spam(prev_time):
 
 # Loading token, initializing bot and connecting to database
 load_dotenv()
-TOKEN = os.getenv('TOKEN')
+TOKEN = ''
+if len(sys.argv) > 1:
+    TOKEN = sys.argv[1]
+else:
+    TOKEN = os.getenv('TOKEN')
 bot = tb.TeleBot(TOKEN)
 db = database('db.db')
 
