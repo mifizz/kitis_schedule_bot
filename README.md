@@ -12,3 +12,9 @@ TOKEN='YOUR TOKEN HERE'
 python bot.py YOUR_TOKEN_HERE
 ```
 (in some systems you need to replace **python** with **python3**)
+
+# Dependencies
+For this bot to work, you need to install some libraries with **pip**.
+```
+pip install requests telebot python-dotenv beautifulsoup4
+```
