@@ -1,4 +1,4 @@
-import requests, os, time
+import requests, os, time, sys
 import telebot as tb
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
@@ -75,25 +75,22 @@ url_dict = {
         'М24-1':'243',
         }
 
-def debug_message(type, color, text):
-    output = '[ '
-    match color:
-        case 'red':
-            output += '\033[31m'
-        case 'green':
-            output += '\033[32m'
-        case 'yellow':
-            output += '\033[33m'
-        case 'blue':
-            output += '\033[34m'
-        case 'magenta':
-            output += '\033[35m'
-        case 'cyan':
-            output += '\033[36m'
-        case _:
-            output += '\033[90m'
-    
-    output = output + type + '\033[0m ] ' + text
+def log(type='u', color='b', text='undefined'):
+    colors = {
+        'r':'\033[31m',
+        'g':'\033[32m',
+        'y':'\033[33m',
+        'b':'\033[90m'
+    }
+    types = {
+        't':'START',
+        'g':'GROUP',
+        's':'SCHED',
+        'o':'OTHER',
+        'u':'UNDEF'
+    }
+
+    output = '[ '+ colors[color] + types[type] + '\033[0m ] - ' + text
     print(output)
 
 def get_url(group):
@@ -164,7 +161,7 @@ def get_schedule(url, group):
                 elif td.text.find('Вс') >= 0:
                     result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Вс') + ' - <b>Воскресенье</b>'
     else:
-        print("Failed to fetch the website.")
+        log('s', 'r', f'error: failed to fetch website! // status code: {response.status_code}')
         exit()
     return result
 
@@ -198,54 +195,58 @@ db = database('db.db')
 # Start message command
 @bot.message_handler(commands=['start'])
 def start(message):
-    debug_message('SYSTEM  ', 'magenta', 'Got new start message!')
+    log('t', 'b', f'start received // sender id: {message.chat.id}, username: {message.chat.username}')
     bot.send_message(message.chat.id, "Привет, это бот для просмотра расписания КИТиС!\nДля начала выбери свою группу с помощью команды /group, а после этого используй команду /schedule, чтобы посмотреть расписание выбранной группы!")
 
     if db.user_exists(message.chat.id):
-        debug_message('DATABASE', 'green', 'User exists ( id={}, user_id={} )'.format(str(db.get_db_id(message.chat.id)), message.chat.id))
+        log('t', 'g', f'user exists // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
     else:
-        debug_message('DATABASE', 'yellow', 'User is not in database. Adding user to database...')
+        log('t', 'y', f'user is not in database // id: {message.chat.id}, username: {message.chat.username}')
         db.add_user(message.chat.id, message.chat.username)
-        debug_message('DATABASE', 'green', 'Successfully added user to database! ( id={}, user_id={} )'.format(str(db.get_db_id(message.chat.id)), message.chat.id))
+        log('t', 'g', f'added user to database // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
 
 # Schedule command
 @bot.message_handler(commands=['schedule'])
 def schedule(message):
-    debug_message('REQUEST ', 'cyan', 'New schedule request!')    # DEBUG
+    log('s', 'b', f'schedule request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')    # DEBUG
     
     if not db.get_group(message.chat.id):
-        debug_message('REQUEST ', 'red', 'Request rejected - group is empty!')     # DEBUG
-        
+        log('s', 'r', f'request rejected: group is empty! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')     # DEBUG
         bot.send_message(message.chat.id, 'Сначала выберите группу! - /group')
         return
     if is_schedule_spam(db.get_schedule_request_time(message.chat.id)):
-        debug_message('REQUEST ', 'red', 'Request rejected - too many requests in 10 seconds!')     # DEBUG
-
+        log('s', 'r', f'request rejected: too many requests in 10 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')     # DEBUG
         bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
         return
     
     request_notification = bot.send_message(message.chat.id, "Запрашиваю данные...\n\n<i>Если Вы видите этот текст больше 10 секунд, значит скорее всего что-то пошло не так...</i>", parse_mode='HTML')
     group = db.get_group(message.chat.id)
-    result = get_schedule(get_url(group), group)
+    
+    try:
+        result = get_schedule(get_url(group), group)
+    except:
+        bot.edit_message_text("Не удалось получить расписание! Попробуйте позже...", message.chat.id, request_notification.id)
+        return
     bot.edit_message_text(result, message.chat.id, request_notification.id, parse_mode='HTML')
     db.update_schedule_request_time(message.chat.id)
-    debug_message('REQUEST ', 'green', 'Successfully sent schedule!')     # DEBUG
+    log('s', 'g', f'sent schedule // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')     # DEBUG
 
 # Group pickup command
 @bot.message_handler(commands=['group'])
 def group_pickup(message):
-    debug_message('REQUEST ', 'cyan', 'New group pickup request!')
+    log('g', 'b', f'group pickup request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
     if is_group_spam(db.get_group_request_time(message.chat.id)):
-        debug_message('REQUEST ', 'red', 'Request rejected - too many requests in 5 seconds!')
+        log('g', 'r', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
         bot.send_message(message.chat.id, 'Вы слишком часто используете команду смены группы!\nВы можете менять группу используя уже присланную в предыдущих сообщениях таблицу с группами!')
         return
     bot.send_message(message.chat.id, "Выберите группу:", reply_markup=gm_groups())
     db.update_group_request_time(message.chat.id)
+    log('g', 'b', f'sent group pickup message // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
 
 # Callback query handler (buttons in bot messages)
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    debug_message('SYSTEM  ', 'magenta', 'Processing group pickup request...')
+    #log('g', 'b', 'processing group pickup request...')
 
     db.set_group(call.message.chat.id, call.data)
     
@@ -253,8 +254,12 @@ def callback_query(call):
     # Closing callback query (Unfreezing buttons)
     bot.answer_callback_query(call.id)
     if db.user_has_group(call.message.chat.id):
-        debug_message('SYSTEM  ', 'green', ('Successfully picked group! ( ' + str(db.get_group(call.message.chat.id)) + ' )'))
+        log('g', 'g', f'picked group {db.get_group(call.message.chat.id)} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
+    else:
+        log('g', 'r', f'something went wrong // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
 
 # Launching bot polling
 bot.infinity_polling(timeout=20, long_polling_timeout = 10, none_stop=True)
+log('o', 'b', 'closing database and stopping...')
 db.close()
+log('o', 'b', 'finished')
