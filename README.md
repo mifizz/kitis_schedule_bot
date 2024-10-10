@@ -18,7 +18,7 @@ After you set up your new bot you need to get your bot token. To do this you nee
 Before you can launch bot you need to install dependencies. They are listed in [dependencies](#dependencies) section
 
 Finally, you need to launch your bot with your API token. You currently have 2 options for launching bot:
-1. Create *.env* file in the same directory as all *.py* files located. Here you need to write this string and change 'YOUR TOKEN HERE' to your bot token.
+1. Create *.env* file in the same directory as all *.py* files located. Here you need to write this string and change **YOUR TOKEN HERE** to your bot token (you MUST keep quotes).
 ```
 TOKEN='YOUR TOKEN HERE'
 ```
