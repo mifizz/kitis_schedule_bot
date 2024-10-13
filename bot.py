@@ -86,12 +86,21 @@ def log(type='u', color='b', text='undefined'):
         't':'START',
         'g':'GROUP',
         's':'SCHED',
+        'e':'ERROR',
         'o':'OTHER',
         'u':'UNDEF'
     }
 
     output = '[ '+ colors[color] + types[type] + '\033[0m ] - ' + text
     print(output)
+
+def e_polling():
+    while True:
+        try:
+            bot.polling(timeout=20, long_polling_timeout = 10)
+        except Exception as e:
+            log('e', 'r', f'error occurred: {e}')
+            time.sleep(5)
 
 def get_url(group):
     url = 'http://94.72.18.202:8083/raspisanie/www/cg'
@@ -259,7 +268,7 @@ def callback_query(call):
         log('g', 'r', f'something went wrong // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
 
 # Launching bot polling
-bot.infinity_polling(timeout=20, long_polling_timeout = 10, none_stop=True)
+e_polling()
 log('o', 'b', 'closing database and stopping...')
 db.close()
 log('o', 'b', 'finished')
