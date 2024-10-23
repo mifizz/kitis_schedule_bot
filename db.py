@@ -5,6 +5,16 @@ class database:
     def __init__(self, db_file):
         self.connection = sqlite3.connect(db_file, check_same_thread=False)
         self.cursor = self.connection.cursor()
+        self.cursor.execute("""
+CREATE TABLE IF NOT EXISTS users (
+                            id INTEGER PRIMARY KEY, 
+                            user_id INTEGER UNIQUE NOT NULL, 
+                            username TEXT, 
+                            user_group TEXT, 
+                            join_date DATETIME NOT NULL DEFAULT ((DATETIME('now'))), 
+                            last_schedule_request_time REAL, 
+                            last_group_request_time REAL)
+""")
     
     # Check if user exists
     def user_exists(self, user_id):

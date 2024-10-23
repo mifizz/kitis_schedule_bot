@@ -1,10 +1,44 @@
-import requests, os, time, sys
+import requests, os, time, sys, logging
 import telebot as tb
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
 from telebot.types import *
 from db import database
 
+# Initializing logger
+logger = logging.getLogger(__name__)
+logging.basicConfig(filename='log.log',
+                    format='%(asctime)s %(message)s', 
+                    level=logging.INFO)
+
+# Arguments
+args_token = ''
+args_colored = False
+
+if '-h' in sys.argv or '--help' in sys.argv:
+    print('-h or --help\t - show usage help\n-c or --colored\t - sets colored log output (cat)\n-t or --token\t - sets bot token from next agrument')
+    exit()
+
+if '-t' in sys.argv or '--token' in sys.argv:
+    args_token = sys.argv[sys.argv.index('-t') + 1]
+
+if '-c' in sys.argv or '--colored' in sys.argv:
+    args_colored = True
+
+# Loading token and initializing bot
+load_dotenv()
+if os.getenv('TOKEN'):
+    TOKEN = os.getenv('TOKEN')
+elif args_token != '':
+    TOKEN = args_token
+else:
+    raise "error: token not defined"
+bot = tb.TeleBot(TOKEN)
+
+# Connecting to database
+db = database('db.db')
+
+# Some variables :)
 groups_count = 58
 monday_bells = {
     '1 Пара':'9:10-10:30',
@@ -80,27 +114,35 @@ def log(type='u', color='b', text='undefined'):
         'r':'\033[31m',
         'g':'\033[32m',
         'y':'\033[33m',
-        'b':'\033[90m'
+        'b':'\033[36m'
     }
     types = {
-        't':'START',
-        'g':'GROUP',
-        's':'SCHED',
-        'e':'ERROR',
-        'o':'OTHER',
-        'u':'UNDEF'
+        't':'start',
+        'g':'group',
+        's':'sched',
+        'e':'error',
+        'o':'other',
+        'u':'undef'
     }
 
-    output = '[ '+ colors[color] + types[type] + '\033[0m ] - ' + text
-    print(output)
+    if args_colored:
+        output = colors[color] + '[' + types[type] + ']\033[0m > ' + text
+        print(f'\033[90m{time.asctime()}\033[0m {output}')
+    else:
+        output = '['+ types[type] + '] > ' + text
+        print(f'{time.asctime()} {output}')
+    logger.info(output)
 
 def e_polling():
     while True:
         try:
             bot.polling(timeout=20, long_polling_timeout = 10)
+            log('o', 'b', 'bot stopped working')
+            break
         except Exception as e:
             log('e', 'r', f'error occurred: {e}')
             time.sleep(5)
+            log('o', 'b', 'bot relaunched')
 
 def get_url(group):
     url = 'http://94.72.18.202:8083/raspisanie/www/cg'
@@ -108,9 +150,12 @@ def get_url(group):
     return url
 
 def get_schedule(url, group):
-    result = 'Группа - <b>' + group + '</b>\n'
-    response = requests.get(url)
-
+    result = 'Расписание для группы <b>' + group + '</b>\n'
+    try:
+        response = requests.get(url)
+    except Exception as e:
+        log('e', 'r', f'error: failed to fetch website! // exception: "{e}"\n')
+        raise
     if response.status_code == 200:
         html_content = response.content
         soup = BeautifulSoup(html_content, 'html.parser')
@@ -170,8 +215,8 @@ def get_schedule(url, group):
                 elif td.text.find('Вс') >= 0:
                     result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Вс') + ' - <b>Воскресенье</b>'
     else:
-        log('s', 'r', f'error: failed to fetch website! // status code: {response.status_code}')
-        exit()
+        log('s', 'r', f'error: failed to fetch website! // status code: {response.status_code}') # this line of code will probably never execute :\
+        raise
     return result
 
 def gm_groups():
@@ -190,16 +235,6 @@ def is_schedule_spam(prev_time):
 
 def is_group_spam(prev_time):
     return (time.time() - prev_time) < 5
-
-# Loading token, initializing bot and connecting to database
-load_dotenv()
-TOKEN = ''
-if len(sys.argv) > 1:
-    TOKEN = sys.argv[1]
-else:
-    TOKEN = os.getenv('TOKEN')
-bot = tb.TeleBot(TOKEN)
-db = database('db.db')
 
 # Start message command
 @bot.message_handler(commands=['start'])
@@ -268,7 +303,8 @@ def callback_query(call):
         log('g', 'r', f'something went wrong // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
 
 # Launching bot polling
+log('o', 'b', 'bot launched')
 e_polling()
-log('o', 'b', 'closing database and stopping...')
+log('o', 'b', 'closing database...')
 db.close()
-log('o', 'b', 'finished')
+log('o', 'b', 'finished\n')
