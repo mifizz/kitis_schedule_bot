@@ -30,12 +30,19 @@ And then launch your bot with python:
 python bot.py
 ```
 
-2. You can launch your bot without creating *.env* file. Just type your API token as command line argument when launching bot:
+2. You can launch your bot without creating *.env* file. Use *-t* or *--token* flag with token afterwards instead when launching bot:
 ```
-python bot.py YOUR_TOKEN_HERE
+python bot.py -t YOUR_TOKEN_HERE
 ```
 
 Note that in some systems you need to replace **python** with **python3**.
+
+### Logging
+You can see debug information in your terminal when bot is running. You can also view *log.log* file to see old debug output.
+If you want colored debug output in your terminal or if you are using **cat** to see *log.log* file you may use *-c* or *--colored* flag when launching bot, eg.
+```
+python bot.py -c
+```
 
 ## Dependencies
 For this bot to work, you need to install some libraries with **pip** (just paste this command and press Enter).
@@ -73,12 +80,19 @@ TOKEN='ВАШ ТОКЕН'
 python bot.py
 ```
 
-2. Вы можете запустить бота без создания файла *.env*. Для этого при запуске бота в качестве аргумента укажите токен бота:
+2. Вы можете запустить бота без создания файла *.env*. Для этого при запуске бота укажите флаг *-t* или *--token*, а после токен бота:
 ```
-python bot.py ВАШ_ТОКЕН
+python bot.py -t ВАШ_ТОКЕН
 ```
 
 Учтите, что в некоторых системах Вам нужно использовать **python3** вместо **python**.
+
+### Логи
+Вы можете видеть отладочную информацию в вашем терминале, когда бот запущен. Вы также можете посмотреть старые отладочные выводы бота в файле *log.log*.
+Если Вы хотите видеть цветной отладочный вывод бота в терминале или если Вы используете **cat** для просмотра логов, при запуске бота добавьте флаг *-c* или *--colored*. Например:
+```
+python bot.py -c
+```
 
 ## Зависимости
 Чтобы бот работал, Вам нужно установить следующие библиотеки с помощью **pip** (просто вставьте следующую команду и нажмите Enter):
