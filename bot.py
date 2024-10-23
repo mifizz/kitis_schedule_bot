@@ -109,6 +109,7 @@ url_dict = {
         'М24-1':'243',
         }
 
+logger.info('-----------------------------------------')
 def log(type='u', color='b', text='undefined'):
     colors = {
         'r':'\033[31m',
@@ -303,7 +304,7 @@ def callback_query(call):
         log('g', 'r', f'something went wrong // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
 
 # Launching bot polling
-log('o', 'b', '\nbot launched')
+log('o', 'b', 'bot launched')
 e_polling()
 log('o', 'b', 'closing database...')
 db.close()
