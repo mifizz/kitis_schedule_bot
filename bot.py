@@ -303,8 +303,8 @@ def callback_query(call):
         log('g', 'r', f'something went wrong // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
 
 # Launching bot polling
-log('o', 'b', 'bot launched')
+log('o', 'b', '\nbot launched')
 e_polling()
 log('o', 'b', 'closing database...')
 db.close()
-log('o', 'b', 'finished\n')
+log('o', 'b', 'finished')
