@@ -39,6 +39,7 @@ Note that in some systems you need to replace **python** with **python3**.
 
 ### Logging
 You can see debug information in your terminal when bot is running. You can also view *log.log* file to see old debug output.
+
 If you want colored debug output in your terminal or if you are using **cat** to see *log.log* file you may use *-c* or *--colored* flag when launching bot, eg.
 ```
 python bot.py -c
@@ -89,6 +90,7 @@ python bot.py -t ВАШ_ТОКЕН
 
 ### Логи
 Вы можете видеть отладочную информацию в вашем терминале, когда бот запущен. Вы также можете посмотреть старые отладочные выводы бота в файле *log.log*.
+
 Если Вы хотите видеть цветной отладочный вывод бота в терминале или если Вы используете **cat** для просмотра логов, при запуске бота добавьте флаг *-c* или *--colored*. Например:
 ```
 python bot.py -c
