@@ -140,7 +140,7 @@ def e_polling():
             bot.polling(timeout=20, long_polling_timeout = 10)
             log('o', 'b', 'bot stopped working')
             break
-        except Exception as e:
+        except {Exception, tb.apihelper.ApiTelegramException, tb.apihelper.ApiException} as e:
             log('e', 'r', f'error occurred: {e}')
             time.sleep(5)
             log('o', 'b', 'bot relaunched')
