@@ -40,13 +40,23 @@ db = database('db.db')
 
 # Some variables :)
 groups_count = 58
-monday_bells = {
-    '1 Пара':'9:10-10:30',
-    '2 Пара':'10:40-12:00',
-    '3 Пара':'12:20-13:40',
-    '4 Пара':'13:50-15:10',
-    '5 Пара':'15:20-16:40',
-    '6 Пара':'16:50-18:10'
+bells_monday = {
+    '1 Пара':'8:30-9:00',
+    '2 Пара':'9:10-10:30',
+    '3 Пара':'10:40-12:00',
+    '4 Пара':'12:20-13:40',
+    '5 Пара':'13:50-15:10',
+    '6 Пара':'15:20-16:40',
+    '7 Пара':'16:50-18:10'
+}
+bells = {
+    '1 Пара':'8:30-10:00',
+    '2 Пара':'10:10-11:40',
+    '3 Пара':'12:10-13:40',
+    '4 Пара':'13:50-15:20',
+    '5 Пара':'15:30-17:00',
+    '6 Пара':'17:10-18:40',
+    '7 Пара':'18:50-20:20'
 }
 url_dict = { 
         'СОД23-1':'130',
@@ -140,7 +150,7 @@ def e_polling():
             bot.polling(timeout=20, long_polling_timeout = 10)
             log('o', 'b', 'bot stopped working')
             break
-        except {Exception, tb.apihelper.ApiTelegramException, tb.apihelper.ApiException} as e:
+        except Exception as e:
             log('e', 'r', f'error occurred: {e}')
             time.sleep(5)
             log('o', 'b', 'bot relaunched')
@@ -162,6 +172,7 @@ def get_schedule(url, group):
         soup = BeautifulSoup(html_content, 'html.parser')
 
         is_monday = False
+        td_next_is_lesson_time = False
         table = soup.find('table', class_='inf')
         for tr in table.find_all('tr'):
             temp_subgroup_found = False
@@ -182,6 +193,10 @@ def get_schedule(url, group):
                 
                 #################  LESSON  #################
                 if td.find('a', class_='z1') != None:
+                    if not is_monday:
+                        result += '<u>' + cur_lesson_number + ' Пара' + '</u> - <i>' + bells[str(cur_lesson_number + ' Пара')] + '</i>'
+                    else:
+                        result += '<u>' + cur_lesson_number + ' Пара' + '</u> - <i>' + bells_monday[str(cur_lesson_number + ' Пара')] + '</i>'
                     result += ' - ' + td.find('a', class_='z1').text + subgroup
                     if td.find('a', class_='z2') != None:
                         result +=  ' - <i>' + td.find('a', class_='z2').text + '</i>'
@@ -191,16 +206,27 @@ def get_schedule(url, group):
                     #result += ' - ' + td.find('a', class_='z1').text + subgroup + ' - ' + td.find('a', class_='z2').text + ' (<i>' + td.find('a', class_='z3').text + '</i>)\n'        # LESSON WITH TEACHER
 
                 ##################  TIME  ##################
+                """
                 if td.text.find('Пара') > 0 and not is_monday:
                     lesson_time = td.text.split(':', maxsplit=1)
                     result += '<u>' + lesson_time[0] + '</u> - <i>' + lesson_time[1] + '</i>'
                 elif td.text.find('Пара') > 0:
                     lesson_time = td.text.split(':', maxsplit=1)
                     result += '<u>' + lesson_time[0] + '</u> - <i>' + monday_bells[lesson_time[0]] + '</i>'
+                """
+
+                """
+                if td_next_is_lesson_time and not is_monday:
+                    result += '<u>' + td.text + ' Пара' + '</u> - <i>' + bells[str(td.text + ' Пара')] + '</i>'
+                    td_next_is_lesson_time = False
+                elif td_next_is_lesson_time:
+                    result += '<u>' + td.text + ' Пара' + '</u> - <i>' + bells_monday[str(td.text + ' Пара')] + '</i>'
+                    td_next_is_lesson_time = False
+                """
                 
                 ##################  DAYS  ##################
                 if td.text.find('Пн') >= 0:
-                    result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Пн') + ' - <b>Понедельник</b>\n\n<u>Подъём флага</u> - <i>8:15-8:25</i>\n<u>Разговор о важном</u> - <i>8:30-9:00</i>\n'
+                    result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Пн') + ' - <b>Понедельник</b>\n\n<u>Подъём флага</u> - <i>8:15-8:25</i>\n'
                     is_monday = True
                 elif td.text.find('Вт') >= 0:
                     result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Вт') + ' - <b>Вторник</b>\n\n'
@@ -213,8 +239,13 @@ def get_schedule(url, group):
                     result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Пт') + ' - <b>Пятница</b>\n\n'
                 elif td.text.find('Сб') >= 0:
                     result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Сб') + ' - <b>Суббота</b>\n'
+                """
                 elif td.text.find('Вс') >= 0:
                     result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Вс') + ' - <b>Воскресенье</b>'
+                """
+
+                if td.text == '1' or td.text == '2' or td.text == '3' or td.text == '4' or td.text == '5' or td.text == '6' or td.text == '7':
+                    cur_lesson_number = td.text
     else:
         log('s', 'r', f'error: failed to fetch website! // status code: {response.status_code}') # this line of code will probably never execute :\
         raise
