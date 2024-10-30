@@ -150,10 +150,12 @@ def e_polling():
             bot.polling(timeout=20, long_polling_timeout = 10)
             log('o', 'b', 'bot stopped working')
             break
+        except tb.apihelper.ApiException as e:
+            log('e', 'r', f'API error occurred: {e}')
         except Exception as e:
             log('e', 'r', f'error occurred: {e}')
-            time.sleep(5)
-            log('o', 'b', 'bot relaunched')
+        time.sleep(5)
+        log('o', 'b', 'bot relaunched')
 
 def get_url(group):
     url = 'http://94.72.18.202:8083/raspisanie/www/cg'
