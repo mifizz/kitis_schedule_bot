@@ -205,26 +205,6 @@ def get_schedule(url, group):
                     else:
                         result += ' - <i>Кабинет не указан</i>'
                     result += '\n'
-                    #result += ' - ' + td.find('a', class_='z1').text + subgroup + ' - ' + td.find('a', class_='z2').text + ' (<i>' + td.find('a', class_='z3').text + '</i>)\n'        # LESSON WITH TEACHER
-
-                ##################  TIME  ##################
-                """
-                if td.text.find('Пара') > 0 and not is_monday:
-                    lesson_time = td.text.split(':', maxsplit=1)
-                    result += '<u>' + lesson_time[0] + '</u> - <i>' + lesson_time[1] + '</i>'
-                elif td.text.find('Пара') > 0:
-                    lesson_time = td.text.split(':', maxsplit=1)
-                    result += '<u>' + lesson_time[0] + '</u> - <i>' + monday_bells[lesson_time[0]] + '</i>'
-                """
-
-                """
-                if td_next_is_lesson_time and not is_monday:
-                    result += '<u>' + td.text + ' Пара' + '</u> - <i>' + bells[str(td.text + ' Пара')] + '</i>'
-                    td_next_is_lesson_time = False
-                elif td_next_is_lesson_time:
-                    result += '<u>' + td.text + ' Пара' + '</u> - <i>' + bells_monday[str(td.text + ' Пара')] + '</i>'
-                    td_next_is_lesson_time = False
-                """
                 
                 ##################  DAYS  ##################
                 if td.text.find('Пн') >= 0:
@@ -241,10 +221,6 @@ def get_schedule(url, group):
                     result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Пт') + ' - <b>Пятница</b>\n\n'
                 elif td.text.find('Сб') >= 0:
                     result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Сб') + ' - <b>Суббота</b>\n'
-                """
-                elif td.text.find('Вс') >= 0:
-                    result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Вс') + ' - <b>Воскресенье</b>'
-                """
 
                 if td.text == '1' or td.text == '2' or td.text == '3' or td.text == '4' or td.text == '5' or td.text == '6' or td.text == '7':
                     cur_lesson_number = td.text
@@ -324,10 +300,7 @@ def group_pickup(message):
 # Callback query handler (buttons in bot messages)
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    #log('g', 'b', 'processing group pickup request...')
-
     db.set_group(call.message.chat.id, call.data)
-    
     bot.send_message(call.message.chat.id, f"Вы выбрали группу {db.get_group(call.message.chat.id)}!")
     # Closing callback query (Unfreezing buttons)
     bot.answer_callback_query(call.id)
