@@ -48,7 +48,8 @@ python bot.py -c
 ## Dependencies
 For this bot to work, you need to install some libraries with **pip** (just paste this command and press Enter).
 ```
-pip install requests pyTelegramBotAPI python-dotenv beautifulsoup4
+pip install requests python-dotenv beautifulsoup4
+pip install git+https://github.com/mifizz/pyTelegramBotAPI.git
 ```
 
 # Бот расписания КИТиС (ru)
@@ -99,5 +100,6 @@ python bot.py -c
 ## Зависимости
 Чтобы бот работал, Вам нужно установить следующие библиотеки с помощью **pip** (просто вставьте следующую команду и нажмите Enter):
 ```
-pip install requests pyTelegramBotAPI python-dotenv beautifulsoup4
+pip install requests python-dotenv beautifulsoup4
+pip install git+https://github.com/mifizz/pyTelegramBotAPI.git
 ```
