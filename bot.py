@@ -36,6 +36,12 @@ def log(type='u', color='b', text='undefined'):
     logger.info(output)
 logger.info('-----------------------------------------')
 
+# Exception handler
+class BotExceptionHandler(tb.ExceptionHandler):
+    def handle(self, exception):
+        log('e', 'r', f"error occured: {exception}")
+        return exception
+
 # Arguments
 args_token = ''
 args_colored = False
@@ -58,7 +64,7 @@ elif args_token != '':
     TOKEN = args_token
 else:
     raise "error: token not defined"
-bot = tb.TeleBot(TOKEN)
+bot = tb.TeleBot(TOKEN, exception_handler=BotExceptionHandler())
 
 # Connecting to database
 db = database('db.db')
@@ -143,18 +149,6 @@ url_dict = {
         'М23-1':'187',
         'М24-1':'243',
         }
-
-def e_polling():
-    while True:
-        try:
-            bot.polling(timeout=20, long_polling_timeout = 10)
-            log('o', 'b', 'bot stopped working')
-            break
-        except Exception as e:
-            log('e', 'r', f'error occurred: {e}')
-            log('o', 'b', 'relaunching bot...')
-        time.sleep(5)
-        log('o', 'b', 'bot relaunched')
 
 def get_url(group):
     url = 'http://94.72.18.202:8083/raspisanie/www/cg'
@@ -278,8 +272,9 @@ def schedule(message):
     
     try:
         result = get_schedule(get_url(group), group)
-    except:
+    except Exception as e:
         bot.edit_message_text("Не удалось получить расписание! Попробуйте позже...", message.chat.id, request_notification.id)
+        log('e', 'r', f'error occured: {e}')
         return
     bot.edit_message_text(result, message.chat.id, request_notification.id, parse_mode='HTML')
     db.update_schedule_request_time(message.chat.id)
@@ -311,7 +306,8 @@ def callback_query(call):
 
 # Launching bot polling
 log('o', 'b', 'bot launched')
-e_polling()
+bot.polling(timeout=20, long_polling_timeout = 10)
+log('o', 'b', 'bot stopped working')
 log('o', 'b', 'closing database...')
 db.close()
 log('o', 'b', 'finished')
