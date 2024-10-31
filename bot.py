@@ -11,6 +11,31 @@ logging.basicConfig(filename='log.log',
                     format='%(asctime)s %(message)s', 
                     level=logging.INFO)
 
+def log(type='u', color='b', text='undefined'):
+    colors = {
+        'r':'\033[31m',
+        'g':'\033[32m',
+        'y':'\033[33m',
+        'b':'\033[36m'
+    }
+    types = {
+        't':'start',
+        'g':'group',
+        's':'sched',
+        'e':'error',
+        'o':'other',
+        'u':'undef'
+    }
+
+    if args_colored:
+        output = colors[color] + '[' + types[type] + ']\033[0m > ' + text
+        print(f'\033[90m{time.asctime()}\033[0m {output}')
+    else:
+        output = '['+ types[type] + '] > ' + text
+        print(f'{time.asctime()} {output}')
+    logger.info(output)
+logger.info('-----------------------------------------')
+
 # Arguments
 args_token = ''
 args_colored = False
@@ -119,41 +144,15 @@ url_dict = {
         'М24-1':'243',
         }
 
-logger.info('-----------------------------------------')
-def log(type='u', color='b', text='undefined'):
-    colors = {
-        'r':'\033[31m',
-        'g':'\033[32m',
-        'y':'\033[33m',
-        'b':'\033[36m'
-    }
-    types = {
-        't':'start',
-        'g':'group',
-        's':'sched',
-        'e':'error',
-        'o':'other',
-        'u':'undef'
-    }
-
-    if args_colored:
-        output = colors[color] + '[' + types[type] + ']\033[0m > ' + text
-        print(f'\033[90m{time.asctime()}\033[0m {output}')
-    else:
-        output = '['+ types[type] + '] > ' + text
-        print(f'{time.asctime()} {output}')
-    logger.info(output)
-
 def e_polling():
     while True:
         try:
             bot.polling(timeout=20, long_polling_timeout = 10)
             log('o', 'b', 'bot stopped working')
             break
-        except tb.apihelper.ApiException as e:
-            log('e', 'r', f'API error occurred: {e}')
         except Exception as e:
             log('e', 'r', f'error occurred: {e}')
+            log('o', 'b', 'relaunching bot...')
         time.sleep(5)
         log('o', 'b', 'bot relaunched')
 
@@ -224,6 +223,7 @@ def get_schedule(url, group):
 
                 if td.text == '1' or td.text == '2' or td.text == '3' or td.text == '4' or td.text == '5' or td.text == '6' or td.text == '7':
                     cur_lesson_number = td.text
+        result += '\n<i>' + soup.find('div', class_='ref').text.removeprefix(' ').removesuffix(' ') + '</i>' # Date and time of last schedule change
     else:
         log('s', 'r', f'error: failed to fetch website! // status code: {response.status_code}') # this line of code will probably never execute :\
         raise
