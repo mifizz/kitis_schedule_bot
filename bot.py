@@ -1,9 +1,8 @@
-import requests, os, time, sys, logging
+import requests, os, time, sys, logging, dotenv
 import telebot as tb
-from dotenv import load_dotenv
 from bs4 import BeautifulSoup
-from telebot.types import *
-from db import database
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from db import database # local class from db.py
 
 # Initializing logger
 logger = logging.getLogger(__name__)
@@ -39,32 +38,60 @@ logger.info('-----------------------------------------')
 # Exception handler
 class BotExceptionHandler(tb.ExceptionHandler):
     def handle(self, exception):
-        log('e', 'r', f"error occured: {exception}")
+        log('e', 'r', f"error occurred: {exception}")
         return exception
 
-# Arguments
+# Arguments and flags
 args_token = ''
 args_colored = False
 
+# list of all existing flags
+args_list = {'-h', '--help', '-t', '--token', '-c', '--colored'}
+
+sys.argv.remove(sys.argv[0]) # Removing filename from arguments list
+
+# help flag
 if '-h' in sys.argv or '--help' in sys.argv:
     print('-h or --help\t - show usage help\n-c or --colored\t - sets colored log output (cat)\n-t or --token\t - sets bot token from next agrument')
-    exit()
+    exit(0)
 
-if '-t' in sys.argv or '--token' in sys.argv:
+# token flag
+if '-t' in sys.argv:
     args_token = sys.argv[sys.argv.index('-t') + 1]
+    sys.argv.remove(sys.argv[sys.argv.index('-t') + 1])
+    sys.argv.remove('-t')
+elif '--token' in sys.argv:
+    args_token = sys.argv[sys.argv.index('--token') + 1]
+    sys.argv.remove(sys.argv[sys.argv.index('--token') + 1])
+    sys.argv.remove('--token')
 
+# colored log flag
 if '-c' in sys.argv or '--colored' in sys.argv:
     args_colored = True
+    if '-c' in sys.argv:
+        sys.argv.remove('-c')
+    elif '--colored' in sys.argv:
+        sys.argv.remove('--colored')
+
+# check for unknown arguments
+if len(sys.argv) > 0 and not sys.argv[0] in args_list:
+    log('e', 'r', f'unknown argument "{sys.argv[0]}". aborting...')
+    exit(1)
 
 # Loading token and initializing bot
-load_dotenv()
+dotenv.load_dotenv()
 if os.getenv('TOKEN'):
     TOKEN = os.getenv('TOKEN')
 elif args_token != '':
     TOKEN = args_token
 else:
-    raise "error: token not defined"
-bot = tb.TeleBot(TOKEN, exception_handler=BotExceptionHandler())
+    log('e', 'r', 'error occurred: no token given')
+    exit(1)
+try:
+    bot = tb.TeleBot(TOKEN, exception_handler=BotExceptionHandler())
+except Exception as e:
+    log('e', 'r', f'error occurred: {e}')
+    exit(1)
 
 # Connecting to database
 db = database('db.db')
@@ -148,7 +175,7 @@ url_dict = {
         'М22-1':'186',
         'М23-1':'187',
         'М24-1':'243',
-        }
+}
 
 def get_url(group):
     url = 'http://94.72.18.202:8083/raspisanie/www/cg'
@@ -259,11 +286,11 @@ def schedule(message):
     log('s', 'b', f'schedule request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')    # DEBUG
     
     if not db.get_group(message.chat.id):
-        log('s', 'r', f'request rejected: group is empty! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')     # DEBUG
+        log('s', 'y', f'request rejected: group is empty! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')     # DEBUG
         bot.send_message(message.chat.id, 'Сначала выберите группу! - /group')
         return
     if is_schedule_spam(db.get_schedule_request_time(message.chat.id)):
-        log('s', 'r', f'request rejected: too many requests in 10 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')     # DEBUG
+        log('s', 'y', f'request rejected: too many requests in 10 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')     # DEBUG
         bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
         return
     
@@ -274,7 +301,7 @@ def schedule(message):
         result = get_schedule(get_url(group), group)
     except Exception as e:
         bot.edit_message_text("Не удалось получить расписание! Попробуйте позже...", message.chat.id, request_notification.id)
-        log('e', 'r', f'error occured: {e}')
+        log('e', 'r', f'error occurred: {e}')
         return
     bot.edit_message_text(result, message.chat.id, request_notification.id, parse_mode='HTML')
     db.update_schedule_request_time(message.chat.id)
@@ -285,7 +312,7 @@ def schedule(message):
 def group_pickup(message):
     log('g', 'b', f'group pickup request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
     if is_group_spam(db.get_group_request_time(message.chat.id)):
-        log('g', 'r', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+        log('g', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
         bot.send_message(message.chat.id, 'Вы слишком часто используете команду смены группы!\nВы можете менять группу используя уже присланную в предыдущих сообщениях таблицу с группами!')
         return
     bot.send_message(message.chat.id, "Выберите группу:", reply_markup=gm_groups())
@@ -307,6 +334,8 @@ def callback_query(call):
 # Launching bot polling
 log('o', 'b', 'bot launched')
 bot.polling(timeout=20, long_polling_timeout = 10)
+
+# Stopping bot
 log('o', 'b', 'bot stopped working')
 log('o', 'b', 'closing database...')
 db.close()
