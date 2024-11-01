@@ -10,14 +10,15 @@ logging.basicConfig(filename='log.log',
                     format='%(asctime)s %(message)s', 
                     level=logging.INFO)
 
-def log(type='u', color='b', text='undefined'):
+def log(tag='u', color='b', text='undefined'):
+    # writing in log and printing in console
     colors = {
         'r':'\033[31m',
         'g':'\033[32m',
         'y':'\033[33m',
         'b':'\033[36m'
     }
-    types = {
+    tags = {
         't':'start',
         'g':'group',
         's':'sched',
@@ -27,13 +28,46 @@ def log(type='u', color='b', text='undefined'):
     }
 
     if args_colored:
-        output = colors[color] + '[' + types[type] + ']\033[0m > ' + text
+        output = colors[color] + '[' + tags[tag] + ']\033[0m > ' + text
         print(f'\033[90m{time.asctime()}\033[0m {output}')
     else:
-        output = '['+ types[type] + '] > ' + text
+        output = '['+ tags[tag] + '] > ' + text
         print(f'{time.asctime()} {output}')
     logger.info(output)
+
+    if args_notify and tag == 'e':
+        post_ntfy('e', 'error occured', f'{text}', 'h')
+
 logger.info('-----------------------------------------')
+
+# notifications via ntfy
+post_topic = ''
+def post_ntfy(tag='i', title='title undefined', text='text undefined', priority='d'):
+    global args_notify
+    tags = {
+        'i':'speech_balloon',
+        'w':'warning',
+        'e':'x'
+    }
+    priorities = {
+        'u':'urgent',
+        'h':'high',
+        'd':'default',
+        'l':'low',
+        'm':'min'
+    }
+
+    post_req = requests.post(f"https://ntfy.sh/{post_topic}",
+        data=f"{text}",
+        headers={
+            "Title": f"{title}",
+            "Priority": f"{priorities[priority]}",
+            "Tags": f"{tags[tag]}"
+        })
+    print(post_req.status_code)
+    if post_req.status_code != 200:
+        args_notify = False
+        log('e', 'r', f'error occurred: can\'t access "ntfy.sh/{post_topic}" (status code: {post_req.status_code}). Notifications are now disabled.')
 
 # Exception handler
 class BotExceptionHandler(tb.ExceptionHandler):
@@ -44,6 +78,7 @@ class BotExceptionHandler(tb.ExceptionHandler):
 # Arguments and flags
 args_token = ''
 args_colored = False
+args_notify = False
 
 # list of all existing flags
 args_list = {'-h', '--help', '-t', '--token', '-c', '--colored'}
@@ -57,13 +92,21 @@ if '-h' in sys.argv or '--help' in sys.argv:
 
 # token flag
 if '-t' in sys.argv:
-    args_token = sys.argv[sys.argv.index('-t') + 1]
-    sys.argv.remove(sys.argv[sys.argv.index('-t') + 1])
-    sys.argv.remove('-t')
+    try:
+        args_token = sys.argv[sys.argv.index('-t') + 1]
+        sys.argv.remove(sys.argv[sys.argv.index('-t') + 1])
+        sys.argv.remove('-t')
+    except Exception as e:
+        log('e', 'r', f'error occurred while getting arguments: {e}')
+        exit(1)
 elif '--token' in sys.argv:
-    args_token = sys.argv[sys.argv.index('--token') + 1]
-    sys.argv.remove(sys.argv[sys.argv.index('--token') + 1])
-    sys.argv.remove('--token')
+    try:
+        args_token = sys.argv[sys.argv.index('--token') + 1]
+        sys.argv.remove(sys.argv[sys.argv.index('--token') + 1])
+        sys.argv.remove('--token')
+    except Exception as e:
+        log('e', 'r', f'error occurred while getting arguments: {e}')
+        exit(1)
 
 # colored log flag
 if '-c' in sys.argv or '--colored' in sys.argv:
@@ -73,6 +116,26 @@ if '-c' in sys.argv or '--colored' in sys.argv:
     elif '--colored' in sys.argv:
         sys.argv.remove('--colored')
 
+# notifications flag
+if '-n' in sys.argv:
+    try:
+        args_notify = True
+        post_topic = sys.argv[sys.argv.index('-n') + 1]
+        sys.argv.remove(sys.argv[sys.argv.index('-n') + 1])
+        sys.argv.remove('-n')
+    except Exception as e:
+        log('e', 'r', f'error occurred while getting arguments: {e}')
+        exit(1)
+elif '--notifications' in sys.argv:
+    try:
+        args_notify = True
+        post_topic = sys.argv[sys.argv.index('--notifications') + 1]
+        sys.argv.remove(sys.argv[sys.argv.index('--notifications') + 1])
+        sys.argv.remove('--notifications')
+    except Exception as e:
+        log('e', 'r', f'error occurred while getting arguments: {e}')
+        exit(1)
+
 # check for unknown arguments
 if len(sys.argv) > 0 and not sys.argv[0] in args_list:
     log('e', 'r', f'unknown argument "{sys.argv[0]}". aborting...')
@@ -80,10 +143,10 @@ if len(sys.argv) > 0 and not sys.argv[0] in args_list:
 
 # Loading token and initializing bot
 dotenv.load_dotenv()
-if os.getenv('TOKEN'):
-    TOKEN = os.getenv('TOKEN')
-elif args_token != '':
+if args_token != '':
     TOKEN = args_token
+elif os.getenv('TOKEN'):
+    TOKEN = os.getenv('TOKEN')
 else:
     log('e', 'r', 'error occurred: no token given')
     exit(1)
@@ -336,6 +399,9 @@ log('o', 'b', 'bot launched')
 bot.polling(timeout=20, long_polling_timeout = 10)
 
 # Stopping bot
+if args_notify:
+    post_ntfy('w', 'stopped', 'bot stopped working.\ncheck log.log for more information.', 'h')
+
 log('o', 'b', 'bot stopped working')
 log('o', 'b', 'closing database...')
 db.close()
