@@ -160,7 +160,6 @@ except Exception as e:
 db = database('db.db')
 
 # Some variables :)
-groups_count = 58
 bells_monday = {
     '1 Пара':'8:30-9:00',
     '2 Пара':'9:10-10:30',
@@ -184,24 +183,18 @@ url_dict = {
         'СОД23-2К':'131',
         'СОД24-1':'227',
         'СОД24-2К':'228',
-        'СОД22-1':'134',
-        'СОД22-2К':'135',
         'С21-1':'140',
         'С21-2':'141',
         'С21-4К':'143',
-        'С21УЗ':'144',
         'С22-1':'145',
         'С22-2':'146',
         'С22-3К':'147',
-        'С22уз':'148',
         'С23-1':'149',
         'С23-2':'150',
         'С23-3К':'151',
-        'С23УЗ':'152',
         'С24-1':'229',
         'С24-2':'231',
         'С24-3К':'230',
-        'С24УЗ':'232',
         'УМД 22-1':'154',
         'УМД23-1':'155',
         'УМД24-1':'233',
@@ -214,7 +207,6 @@ url_dict = {
         'СА23-2':'163',
         'СА24-1':'234',
         'СА24-2':'235',
-        'СА24УЗ':'236',
         'ИСа 22-1':'164',
         'ИСа23-1':'165',
         'ИСа24-1':'239',
@@ -239,6 +231,7 @@ url_dict = {
         'М23-1':'187',
         'М24-1':'243',
 }
+groups_count = len(url_dict)
 
 def get_url(group):
     url = 'http://94.72.18.202:8083/raspisanie/www/cg'
@@ -322,7 +315,6 @@ def gm_groups():
     while n < groups_count - 1:
         markup.add(InlineKeyboardButton(group_keys[n], callback_data=group_keys[n]), InlineKeyboardButton(group_keys[n+1], callback_data=group_keys[n+1]), InlineKeyboardButton(group_keys[n+2], callback_data=group_keys[n+2]))
         n += 3
-    markup.add(InlineKeyboardButton(group_keys[groups_count-1], callback_data=group_keys[groups_count-1]))
     return markup
 
 def is_schedule_spam(prev_time):
