@@ -311,14 +311,16 @@ def gm_groups():
     markup = InlineKeyboardMarkup()
     markup.row_width = 3
     group_keys = list(url_dict.keys())
-    n = 0
-    while n < groups_count - 1:
-        markup.add(InlineKeyboardButton(group_keys[n], callback_data=group_keys[n]), InlineKeyboardButton(group_keys[n+1], callback_data=group_keys[n+1]), InlineKeyboardButton(group_keys[n+2], callback_data=group_keys[n+2]))
-        n += 3
+    IKB_list = list()
+
+    for n in range(len(group_keys)):
+        IKB_list.append(InlineKeyboardButton(group_keys[n], callback_data=group_keys[n]))
+    
+    markup.add(*IKB_list)
     return markup
 
 def is_schedule_spam(prev_time):
-    return (time.time() - prev_time) < 10
+    return (time.time() - prev_time) < 5
 
 def is_group_spam(prev_time):
     return (time.time() - prev_time) < 5
