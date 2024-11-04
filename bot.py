@@ -7,7 +7,7 @@ from db import database # local class from db.py
 # Initializing logger
 logger = logging.getLogger(__name__)
 logging.basicConfig(filename='log.log',
-                    format='%(asctime)s %(message)s', 
+                    format='%(message)s', 
                     level=logging.INFO)
 
 def log(tag='u', color='b', text='undefined'):
@@ -28,11 +28,11 @@ def log(tag='u', color='b', text='undefined'):
     }
 
     if args_colored:
-        output = colors[color] + '[' + tags[tag] + ']\033[0m > ' + text
-        print(f'\033[90m{time.asctime()}\033[0m {output}')
+        output = '\033[90m' + time.asctime() + '\033[0m ' + colors[color] + '[' + tags[tag] + ']\033[0m > ' + text
+        print(output)
     else:
         output = '['+ tags[tag] + '] > ' + text
-        print(f'{time.asctime()} {output}')
+        print(output)
     logger.info(output)
 
     if args_notify and tag == 'e':
