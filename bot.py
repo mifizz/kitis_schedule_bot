@@ -290,20 +290,21 @@ def get_schedule(url, group):
                     result += '\n'
                 
                 ##################  DAYS  ##################
-                if td.text.find('Пн') >= 0:
-                    result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Пн') + ' - <b>Понедельник</b>\n\n<u>Подъём флага</u> - <i>8:15-8:25</i>\n'
-                    is_monday = True
-                elif td.text.find('Вт') >= 0:
-                    result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Вт') + ' - <b>Вторник</b>\n\n'
-                    is_monday = False
-                elif td.text.find('Ср') >= 0:
-                    result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Ср') + ' - <b>Среда</b>\n\n'
-                elif td.text.find('Чт') >= 0:
-                    result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Чт') + ' - <b>Четверг</b>\n\n'
-                elif td.text.find('Пт') >= 0:
-                    result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Пт') + ' - <b>Пятница</b>\n\n'
-                elif td.text.find('Сб') >= 0:
-                    result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Сб') + ' - <b>Суббота</b>\n'
+                if td['class'][0] == 'hd':
+                    if td.text.find('Пн') >= 0:
+                        result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Пн') + ' - <b>Понедельник</b>\n\n<u>Подъём флага</u> - <i>8:15-8:25</i>\n'
+                        is_monday = True
+                    elif td.text.find('Вт') >= 0:
+                        result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Вт') + ' - <b>Вторник</b>\n\n'
+                        is_monday = False
+                    elif td.text.find('Ср') >= 0:
+                        result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Ср') + ' - <b>Среда</b>\n\n'
+                    elif td.text.find('Чт') >= 0:
+                        result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Чт') + ' - <b>Четверг</b>\n\n'
+                    elif td.text.find('Пт') >= 0:
+                        result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Пт') + ' - <b>Пятница</b>\n\n'
+                    elif td.text.find('Сб') >= 0:
+                        result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Сб') + ' - <b>Суббота</b>\n'
 
                 if td.text == '1' or td.text == '2' or td.text == '3' or td.text == '4' or td.text == '5' or td.text == '6' or td.text == '7':
                     cur_lesson_number = td.text
