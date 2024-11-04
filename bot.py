@@ -244,9 +244,8 @@ def get_url(group):
 def get_schedule(url, group):
     result = 'Расписание для группы <b>' + group + '</b>\n'
     try:
-        response = requests.get(url)
+        response = requests.get(url, timeout=5)
     except Exception as e:
-        log('e', 'r', f'error: failed to fetch website! // exception: "{e}"\n')
         raise
     if response.status_code == 200:
         html_content = response.content
