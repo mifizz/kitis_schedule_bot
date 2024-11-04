@@ -400,6 +400,7 @@ def group_pickup(message):
 # Callback query handler (buttons in bot messages)
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
+    global cq_action
     # Group pickup request
     if cq_action == 'group_pickup':
         db.set_group(call.message.chat.id, call.data)
@@ -410,6 +411,7 @@ def callback_query(call):
             log('g', 'g', f'picked group {db.get_group(call.message.chat.id)} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
         else:
             log('g', 'r', f'something went wrong // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
+        cq_action = 'group_pickup'
     
     # Schedule request (one-time)
     elif cq_action == 'sched_other':
@@ -424,10 +426,17 @@ def callback_query(call):
         except Exception as e:
             bot.edit_message_text("Не удалось получить расписание! Попробуйте позже...", call.message.chat.id, request_notification.id)
             log('e', 'r', f'error occurred: {e}')
+            cq_action = 'none'
             return
         bot.edit_message_text(result, call.message.chat.id, request_notification.id, parse_mode='HTML')
         log('s', 'g', f'sent schedule (one-time), group {temp_group} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')     # DEBUG
+        cq_action = 'group_pickup'
     
+    # Callback query is empty
+    elif cq_action == 'none':
+        bot.answer_callback_query(call.id)
+        bot.send_message(call.message.chat.id, 'Не могу выполнить запрос!')
+        log('b', 'u', 'empty callback query request')
     # Unknown callback query action
     else:
         log('g', 'r', f'something went wrong // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
