@@ -13,19 +13,21 @@ logging.basicConfig(filename='log.log',
 def log(tag='u', color='b', text='undefined'):
     # writing in log and printing in console
     colors = {
-        'r':'\033[31m',
-        'g':'\033[32m',
-        'y':'\033[33m',
-        'b':'\033[36m'
+        'r':'\033[31m', # red
+        'g':'\033[32m', # green
+        'y':'\033[33m', # yellow
+        'b':'\033[36m', # blue
+        'w':'\033[90m'  # gray
     }
     tags = {
-        't':'start',
-        'g':'group',
-        's':'sched',
-        'p':'ping?',
-        'e':'error',
-        'o':'other',
-        'u':'undef'
+        't':'start', # start tag
+        'g':'group', # group tag
+        's':'sched', # schedule tag
+        'p':'ping?', # ping tag
+        'e':'error', # important error tag
+        'l':'error', # not important error tag // l stands for lame :)
+        'o':'other', # tag for other information
+        'u':'undef'  # undefined tag
     }
 
     if args_colored:
@@ -46,16 +48,16 @@ post_topic = ''
 def post_ntfy(tag='i', title='title undefined', text='text undefined', priority='d'):
     global args_notify
     tags = {
-        'i':'speech_balloon',
-        'w':'warning',
-        'e':'x'
+        'i':'speech_balloon',   # info tag
+        'w':'warning',          # warning tag
+        'e':'x'                 # error tag
     }
     priorities = {
-        'u':'urgent',
-        'h':'high',
-        'd':'default',
-        'l':'low',
-        'm':'min'
+        'u':'urgent',           # highest priority
+        'h':'high',             # high priority
+        'd':'default',          # default priority
+        'l':'low',              # low priority
+        'm':'min'               # lowest priority
     }
 
     post_req = requests.post(f"https://ntfy.sh/{post_topic}",
@@ -72,14 +74,35 @@ def post_ntfy(tag='i', title='title undefined', text='text undefined', priority=
 
 # Exception handler
 class BotExceptionHandler(tb.ExceptionHandler):
+    last_apiexception_time = 0.0
+    last_readtimeout_time = 0.0
     def handle(self, exception):
-        log('e', 'r', f"error occurred: {exception}")
+        # API HTTP exception
+        if type(exception) == tb.apihelper.ApiHTTPException:
+            if time.time() - self.last_apiexception_time > 20:      # check if error occurrs again within 20 seconds
+                log('e', 'r', f"HTTP request error // {exception}")
+                self.last_apiexception_time = time.time()
+            else:
+                log('l', 'w', f"HTTP request error again")
+        # connection timeout exception
+        elif type(exception) == requests.ConnectTimeout:
+            log('e', 'r', f"connection timed out // {exception}")
+        # read timeout exception
+        elif type(exception) == requests.ReadTimeout:
+            if time.time() - self.last_readtimeout_time > 60:       # check if error occurrs again within 60 seconds
+                log('e', 'r', f"read timed out // {exception}")
+                self.last_readtimeout_time = time.time()
+            else:
+                log('l', 'w', 'read timed out again')
+        # other exceptions
+        else:
+            log('e', 'r', f"error occurred: {exception}")
         return exception
 
 # Arguments and flags
-args_token = ''
-args_colored = False
-args_notify = False
+args_token = ''         # -t or --token
+args_colored = False    # -c or --colored
+args_notify = False     # -n or --notifications
 
 # list of all existing flags
 args_list = {'-h', '--help', '-t', '--token', '-c', '--colored'}
@@ -88,7 +111,7 @@ sys.argv.remove(sys.argv[0]) # Removing filename from arguments list
 
 # help flag
 if '-h' in sys.argv or '--help' in sys.argv:
-    print('-h or --help\t - show usage help\n-c or --colored\t - sets colored log output (cat)\n-t or --token\t - sets bot token from next agrument')
+    print('-h or --help\t\t- show usage help\n-c or --colored\t\t- sets colored log output (cat)\n-t or --token\t\t- set bot token (following argument is token itself)\n-n or --notifications\t- get error notifications (following argument is ntfy.sh topic, eg. "kitis_bot_notifications" without quotes)')
     exit(0)
 
 # token flag
@@ -139,28 +162,32 @@ elif '--notifications' in sys.argv:
 
 # check for unknown arguments
 if len(sys.argv) > 0 and not sys.argv[0] in args_list:
-    log('e', 'r', f'unknown argument "{sys.argv[0]}". aborting...')
+    log('e', 'r', f'error: unknown argument "{sys.argv[0]}". aborting...')
     exit(1)
 
-# Loading token and initializing bot
+# load .env file if present
 dotenv.load_dotenv()
+# get token from argument if present
 if args_token != '':
     TOKEN = args_token
+# get token from .env file if present
 elif os.getenv('TOKEN'):
     TOKEN = os.getenv('TOKEN')
+# no token given -> abort
 else:
-    log('e', 'r', 'error occurred: no token given')
+    log('e', 'r', 'error: no token given. aborting...')
     exit(1)
+# initialize bot
 try:
     bot = tb.TeleBot(TOKEN, exception_handler=BotExceptionHandler())
 except Exception as e:
-    log('e', 'r', f'error occurred: {e}')
+    log('e', 'r', f'can\'t initialize bot: {e}. aborting...')
     exit(1)
 
 # Connecting to database
 db = database('db.db')
 
-# Some variables :)
+# bells for monday
 bells_monday = {
     '1 Пара':'8:30-9:00',
     '2 Пара':'9:10-10:30',
@@ -170,6 +197,7 @@ bells_monday = {
     '6 Пара':'15:20-16:40',
     '7 Пара':'16:50-18:10'
 }
+# bells for all other days (Tue, Wed, Thu, Fri, Sat)
 bells = {
     '1 Пара':'8:30-10:00',
     '2 Пара':'10:10-11:40',
@@ -179,6 +207,9 @@ bells = {
     '6 Пара':'17:10-18:40',
     '7 Пара':'18:50-20:20'
 }
+# every link for group schedule contain a specific number in it
+# eg. for 'http://94.72.18.202:8083/raspisanie/www/cg237.htm' that number is 237
+# so there is a dictionary with all groups and numbers for them
 url_dict = { 
         'СОД23-1':'130',
         'СОД23-2К':'131',
@@ -234,21 +265,26 @@ url_dict = {
 }
 groups_count = len(url_dict)
 
-cq_action = 'none' # Action id for callback query
-cur_bot_message = tb.types.Message
+cq_action = 'none' # action id for callback query
+cur_bot_message = tb.types.Message # last message bot sent (for editing or deleting message)
 
+# get full link for schedule request
 def get_url(group):
     url = 'http://94.72.18.202:8083/raspisanie/www/cg'
     url += url_dict[group] + '.htm'
     return url
 
+# i hope u can guess what does this method do :)
+# maybe i will add more comments to this (i am lazy)
 def get_schedule(url, group):
     result = 'Расписание для группы <b>' + group + '</b>\n'
+    # try to connect to website
     try:
         response = requests.get(url, timeout=5)
     except Exception as e:
         raise
     if response.status_code == 200:
+        # get all html code
         html_content = response.content
         soup = BeautifulSoup(html_content, 'html.parser')
 
@@ -259,9 +295,9 @@ def get_schedule(url, group):
             temp_subgroup_found = False
             subgroup = ''
             for td in tr.find_all('td'):
-                #print(td)                  #debug
-                
                 has_subgroup = False
+
+                ################# SUBGROUP #################
                 if not temp_subgroup_found and tr.find('td', class_='nul') != None:
                     has_subgroup = True
                     temp_tr = tr.find('td', class_='ur')
@@ -285,6 +321,7 @@ def get_schedule(url, group):
                         result += ' - <i>Кабинет не указан</i>'
                     result += '\n'
                 
+                # don't even ask why is this so shitty
                 ##################  DAYS  ##################
                 if td['class'][0] == 'hd':
                     if td.text.find('Пн') >= 0:
@@ -302,14 +339,17 @@ def get_schedule(url, group):
                     elif td.text.find('Сб') >= 0:
                         result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Сб') + ' - <b>Суббота</b>\n'
 
+                # get number of current lesson
                 if td.text == '1' or td.text == '2' or td.text == '3' or td.text == '4' or td.text == '5' or td.text == '6' or td.text == '7':
                     cur_lesson_number = td.text
-        result += '\n<i>' + soup.find('div', class_='ref').text.removeprefix(' ').removesuffix(' ') + '</i>' # Date and time of last schedule change
+        # last schedule update time
+        result += '\n<i>' + soup.find('div', class_='ref').text.removeprefix(' ').removesuffix(' ') + '</i>'
     else:
-        log('s', 'r', f'error: failed to fetch website! // status code: {response.status_code}') # this line of code will probably never execute :\
+        log('s', 'r', f'error: failed to fetch website! // status code: {response.status_code}') # i might just delete this whole if-else section and replace it with some good readable code 8) 
         raise
     return result
 
+# generate markup keyboard for group selection
 def gm_groups():
     markup = InlineKeyboardMarkup()
     markup.row_width = 3
@@ -322,6 +362,7 @@ def gm_groups():
     markup.add(*IKB_list)
     return markup
 
+# following 2 methods is just checking for spam in 'schedule' and 'group' commands
 def is_schedule_spam(prev_time):
     return (time.time() - prev_time) < 5
 
@@ -334,8 +375,10 @@ def start(message):
     log('t', 'b', f'start received // sender id: {message.chat.id}, username: {message.chat.username}')
     bot.send_message(message.chat.id, "Привет, это бот для просмотра расписания КИТиС!\nДля начала выбери свою группу с помощью команды /group, а после этого используй команду /schedule, чтобы посмотреть расписание выбранной группы!")
 
+    # check if user exists
     if db.user_exists(message.chat.id):
         log('t', 'g', f'user exists // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+    # add user to database if there is not
     else:
         log('t', 'y', f'user is not in database // id: {message.chat.id}, username: {message.chat.username}')
         db.add_user(message.chat.id, message.chat.username)
@@ -344,20 +387,23 @@ def start(message):
 # Schedule command
 @bot.message_handler(commands=['schedule'])
 def schedule(message):
-    log('s', 'b', f'schedule request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')    # DEBUG
+    log('s', 'b', f'schedule request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
     
+    # check if group is set
     if not db.get_group(message.chat.id):
-        log('s', 'y', f'request rejected: group is empty! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')     # DEBUG
+        log('s', 'y', f'request rejected: group is empty! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
         bot.send_message(message.chat.id, 'Сначала выберите группу! - /group')
         return
+    # check if using commands too fast (spamming)
     if is_schedule_spam(db.get_schedule_request_time(message.chat.id)):
-        log('s', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')     # DEBUG
+        log('s', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
         bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
         return
     
     request_notification = bot.send_message(message.chat.id, "Запрашиваю данные...\n\n<i>Если Вы видите этот текст больше 10 секунд, значит скорее всего что-то пошло не так...</i>", parse_mode='HTML')
-    group = db.get_group(message.chat.id)
     
+    # try to get schedule
+    group = db.get_group(message.chat.id)
     try:
         result = get_schedule(get_url(group), group)
     except Exception as e:
@@ -366,16 +412,17 @@ def schedule(message):
         return
     bot.edit_message_text(result, message.chat.id, request_notification.id, parse_mode='HTML')
     db.update_schedule_request_time(message.chat.id)
-    log('s', 'g', f'sent schedule // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')     # DEBUG
+    log('s', 'g', f'sent schedule // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
 
 # One time schedule command (scheduleother)
 @bot.message_handler(commands=['scheduleother'])
 def scheduleother(message):
     global cq_action, cur_bot_message
     
-    log('s', 'b', f'schedule request (one-time) // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')    # DEBUG
+    log('s', 'b', f'schedule request (one-time) // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+    # check if using commands too fast (spamming)
     if is_schedule_spam(db.get_schedule_request_time(message.chat.id)):
-        log('s', 'y', f'request rejected (one-time): too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')     # DEBUG
+        log('s', 'y', f'request rejected (one-time): too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
         bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
         return
     cur_bot_message = bot.send_message(message.chat.id, "Выберите группу (группа не сохраняется):", reply_markup=gm_groups())
@@ -388,6 +435,7 @@ def group_pickup(message):
     global cq_action
 
     log('g', 'b', f'group pickup request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+    # check if using commands too fast (spamming)
     if is_group_spam(db.get_group_request_time(message.chat.id)):
         log('g', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
         bot.send_message(message.chat.id, 'Вы слишком часто используете команду смены группы!\nВы можете менять группу используя уже присланную в предыдущих сообщениях таблицу с группами!')
@@ -407,61 +455,70 @@ def callback_query(call):
         bot.send_message(call.message.chat.id, f"Вы выбрали группу {db.get_group(call.message.chat.id)}!")
         # Closing callback query (Unfreezing buttons)
         bot.answer_callback_query(call.id)
+        # check if user has group
         if db.user_has_group(call.message.chat.id):
             log('g', 'g', f'picked group {db.get_group(call.message.chat.id)} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
+        # why the fuck it did not set a group :sob:
         else:
-            log('g', 'r', f'something went wrong // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
+            log('g', 'r', f'what the actual fuck happened (group is not set after trying to set it) // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
         cq_action = 'group_pickup'
     
     # Schedule request (one-time)
     elif cq_action == 'sched_other':
         temp_group = call.data
+        # Closing callback query (Unfreezing buttons)
         bot.answer_callback_query(call.id)
 
         bot.delete_message(call.message.chat.id, cur_bot_message.id)
         request_notification = bot.send_message(call.message.chat.id, "Запрашиваю данные...\n\n<i>Если Вы видите этот текст больше 10 секунд, значит скорее всего что-то пошло не так...</i>", parse_mode='HTML')
 
+        # try to get schedule
         try:
             result = get_schedule(get_url(temp_group), temp_group)
         except Exception as e:
             bot.edit_message_text("Не удалось получить расписание! Попробуйте позже...", call.message.chat.id, request_notification.id)
             log('e', 'r', f'error occurred: {e}')
-            cq_action = 'none'
+            cq_action = 'group_pickup'
             return
         bot.edit_message_text(result, call.message.chat.id, request_notification.id, parse_mode='HTML')
-        log('s', 'g', f'sent schedule (one-time), group {temp_group} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')     # DEBUG
+        log('s', 'g', f'sent schedule (one-time), group {temp_group} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
         cq_action = 'group_pickup'
     
-    # Callback query is empty
+    # Callback query is empty wtf
     elif cq_action == 'none':
         bot.answer_callback_query(call.id)
         bot.send_message(call.message.chat.id, 'Не могу выполнить запрос!')
-        log('b', 'u', 'empty callback query request')
-    # Unknown callback query action
+        log('w', 'u', f'empty callback query action // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
+    # Unknown callback query action (you are cooked up)
     else:
-        log('g', 'r', f'something went wrong // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
+        log('w', 'u', f'unknown callback query action // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
 
+# ping command
 @bot.message_handler(commands=['ping'])
 def bot_ping(message):
     log('p', 'b', f'ping request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
     cur_bot_message = bot.send_message(message.chat.id, f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Ожидание ответа...</b>\n<u>Адрес</u>: <i>http://94.72.18.202:8083/raspisanie/www/index.htm</i>\n<u>IP</u>: <i>94.72.18.202</i>\n<u>Порт</u>: <i>8083</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', parse_mode='HTML')
     try:
+        # try to get website response
         response = requests.get('http://94.72.18.202:8083/raspisanie/www/', timeout=5)
+        # website is working
         bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Работает!</b>\n<u>Адрес</u>: <i>http://94.72.18.202:8083/raspisanie/www/index.htm</i>\n<u>IP</u>: <i>94.72.18.202</i>\n<u>Порт</u>: <i>8083</i>\n<u>Код статуса</u>: <i>{response.status_code}</i>\n<u>Время отклика</u>: <i>{round(response.elapsed.microseconds / 1000) / 1000} сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
         log('p', 'g', f'successfully pinged website! // status code: {response.status_code}, elapsed time: {response.elapsed.microseconds / 1000} ms')
     except Exception as e:
+        # website is down
         bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Не отвечает!</b>\n<u>Адрес</u>: <i>http://94.72.18.202:8083/raspisanie/www/index.htm</i>\n<u>IP</u>: <i>94.72.18.202</i>\n<u>Порт</u>: <i>8083</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
         log('p', 'r', f'can\'t connect to website! // exception: {e}')
 
+log('o', 'w', 'bot launched')
 # Launching bot polling
-log('o', 'b', 'bot launched')
 bot.polling(timeout=20, long_polling_timeout = 10)
 
-# Stopping bot
+# Stopping bot (there is actually nothing to stop, just close database (useless because program will exit anyway))
+# get notification that bot stopped working for some reason
 if args_notify:
     post_ntfy('w', 'stopped', 'bot stopped working.\ncheck log.log for more information.', 'h')
 
-log('o', 'b', 'bot stopped working')
-log('o', 'b', 'closing database...')
+log('o', 'w', 'bot stopped working')
+log('o', 'w', 'closing database...')
 db.close()
-log('o', 'b', 'finished')
+log('o', 'w', 'finished')
