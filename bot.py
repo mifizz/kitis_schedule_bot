@@ -10,7 +10,7 @@ logging.basicConfig(filename='log.log',
                     format='%(message)s', 
                     level=logging.INFO)
 
-def log(tag='u', color='b', text='undefined'):
+def log(tag='u', color='b', text='undefined', will_notify=False, post_title='untitled', post_tag='i'):
     # writing in log and printing in console
     colors = {
         'r':'\033[31m', # red
@@ -25,7 +25,6 @@ def log(tag='u', color='b', text='undefined'):
         's':'sched', # schedule tag
         'p':'ping?', # ping tag
         'e':'error', # important error tag
-        'l':'error', # not important error tag // l stands for lame :)
         'o':'other', # tag for other information
         'u':'undef'  # undefined tag
     }
@@ -38,14 +37,24 @@ def log(tag='u', color='b', text='undefined'):
         print(output)
     logger.info(output)
 
-    if args_notify and tag == 'e':
-        post_ntfy('e', 'error occured', f'{text}', 'h')
+    # send notification if enabled
+    if args_notify and will_notify:
+        match post_tag:
+            # info
+            case 'i':
+                post_ntfy('i', post_title, f'{text}', 'l')
+            # warning
+            case 'w':
+                post_ntfy('w', post_title, f'{text}', 'd')
+            # error
+            case 'e':
+                post_ntfy('e', post_title, f'{text}', 'h')
 
 logger.info('-----------------------------------------')
 
 # notifications via ntfy
 post_topic = ''
-def post_ntfy(tag='i', title='title undefined', text='text undefined', priority='d'):
+def post_ntfy(tag='i', title='untitled', text='none', priority='l'):
     global args_notify
     tags = {
         'i':'speech_balloon',   # info tag
@@ -60,17 +69,17 @@ def post_ntfy(tag='i', title='title undefined', text='text undefined', priority=
         'm':'min'               # lowest priority
     }
 
-    post_req = requests.post(f"https://ntfy.sh/{post_topic}",
-        data=f"{text}",
+    post_req = requests.post(f'https://ntfy.sh/{post_topic}',
+        data=f'{text}',
         headers={
-            "Title": f"{title}",
-            "Priority": f"{priorities[priority]}",
-            "Tags": f"{tags[tag]}"
+            'Title': f'{title}',
+            'Priority': f'{priorities[priority]}',
+            'Tags': f'{tags[tag]}'
         })
     print(post_req.status_code)
     if post_req.status_code != 200:
         args_notify = False
-        log('e', 'r', f'error occurred: can\'t access "ntfy.sh/{post_topic}" (status code: {post_req.status_code}). Notifications are now disabled.')
+        log('e', 'r', f'exception at post_ntfy() // can\'t access \'ntfy.sh/{post_topic}\' (status code: {post_req.status_code}). Notifications are now disabled.')
 
 # Exception handler
 class BotExceptionHandler(tb.ExceptionHandler):
@@ -80,23 +89,31 @@ class BotExceptionHandler(tb.ExceptionHandler):
         # API HTTP exception
         if type(exception) == tb.apihelper.ApiHTTPException:
             if time.time() - self.last_apiexception_time > 20:      # check if error occurrs again within 20 seconds
-                log('e', 'r', f"HTTP request error // {exception}")
+                error_code = str(exception).split('Error code: ')[1].split('. Description')[0]
+                log('e', 'r', f'HTTP request error ({error_code})', True, f'HTTP request returned {error_code}', 'e')
                 self.last_apiexception_time = time.time()
             else:
-                log('l', 'w', f"HTTP request error again")
+                log('e', 'w', f'HTTP request error again')
         # connection timeout exception
         elif type(exception) == requests.ConnectTimeout:
-            log('e', 'r', f"connection timed out // {exception}")
+            # removing useless text
+            e = str(exception).split('ConnectionPool(')[1].split('): Max retries')[0]       # host='...', port=...
+            timeout = str(exception).split('connect timeout=')[1].removesuffix(')\'))')     # set timeout in seconds
+            log('e', 'r', f'connection timed out ({timeout}) // {e}')
         # read timeout exception
         elif type(exception) == requests.ReadTimeout:
             if time.time() - self.last_readtimeout_time > 60:       # check if error occurrs again within 60 seconds
-                log('e', 'r', f"read timed out // {exception}")
+                # removing useless text
+                e = str(exception).split('ConnectionPool(')[1].split('): Read')[0]          # host='...', port=...
+                timeout = str(exception).split('read timeout=')[1].removesuffix(')')        # set timeout in seconds
+                log('e', 'r', f'read timed out ({timeout}) // {e}', True, f'read timed out ({timeout}) // {e}')
                 self.last_readtimeout_time = time.time()
             else:
-                log('l', 'w', 'read timed out again')
+                log('e', 'w', 'read timed out again')
         # other exceptions
+        # if you got these you probably cooked up
         else:
-            log('e', 'r', f"error occurred: {exception}")
+            log('e', 'r', f'{exception}', True, 'you cooked', 'e')
         return exception
 
 # Arguments and flags
@@ -111,7 +128,7 @@ sys.argv.remove(sys.argv[0]) # Removing filename from arguments list
 
 # help flag
 if '-h' in sys.argv or '--help' in sys.argv:
-    print('-h or --help\t\t- show usage help\n-c or --colored\t\t- sets colored log output (cat)\n-t or --token\t\t- set bot token (following argument is token itself)\n-n or --notifications\t- get error notifications (following argument is ntfy.sh topic, eg. "kitis_bot_notifications" without quotes)')
+    print('-h or --help\t\t- show usage help\n-c or --colored\t\t- sets colored log output (cat)\n-t or --token\t\t- set bot token (following argument is token itself)\n-n or --notifications\t- get error notifications (following argument is ntfy.sh topic, eg. \'kitis_bot_notifications\' without quotes)')
     exit(0)
 
 # token flag
@@ -121,7 +138,7 @@ if '-t' in sys.argv:
         sys.argv.remove(sys.argv[sys.argv.index('-t') + 1])
         sys.argv.remove('-t')
     except Exception as e:
-        log('e', 'r', f'error occurred while getting arguments: {e}')
+        log('e', 'r', f'exception at \'-t in sys.argv\' // {e}')
         exit(1)
 elif '--token' in sys.argv:
     try:
@@ -129,7 +146,7 @@ elif '--token' in sys.argv:
         sys.argv.remove(sys.argv[sys.argv.index('--token') + 1])
         sys.argv.remove('--token')
     except Exception as e:
-        log('e', 'r', f'error occurred while getting arguments: {e}')
+        log('e', 'r', f'exception at \'--token in sys.argv\' // {e}')
         exit(1)
 
 # colored log flag
@@ -148,7 +165,7 @@ if '-n' in sys.argv:
         sys.argv.remove(sys.argv[sys.argv.index('-n') + 1])
         sys.argv.remove('-n')
     except Exception as e:
-        log('e', 'r', f'error occurred while getting arguments: {e}')
+        log('e', 'r', f'exception at \'-n in sys.argv\' // {e}')
         exit(1)
 elif '--notifications' in sys.argv:
     try:
@@ -157,12 +174,12 @@ elif '--notifications' in sys.argv:
         sys.argv.remove(sys.argv[sys.argv.index('--notifications') + 1])
         sys.argv.remove('--notifications')
     except Exception as e:
-        log('e', 'r', f'error occurred while getting arguments: {e}')
+        log('e', 'r', f'exception at \'--notifications in sys.argv\' // {e}')
         exit(1)
 
 # check for unknown arguments
 if len(sys.argv) > 0 and not sys.argv[0] in args_list:
-    log('e', 'r', f'error: unknown argument "{sys.argv[0]}". aborting...')
+    log('e', 'r', f'exception: unknown argument \'{sys.argv[0]}\'. aborting...')
     exit(1)
 
 # load .env file if present
@@ -279,10 +296,7 @@ def get_url(group):
 def get_schedule(url, group):
     result = 'Расписание для группы <b>' + group + '</b>\n'
     # try to connect to website
-    try:
-        response = requests.get(url, timeout=5)
-    except Exception as e:
-        raise
+    response = requests.get(url, timeout=5)
     if response.status_code == 200:
         # get all html code
         html_content = response.content
@@ -373,7 +387,7 @@ def is_group_spam(prev_time):
 @bot.message_handler(commands=['start'])
 def start(message):
     log('t', 'b', f'start received // sender id: {message.chat.id}, username: {message.chat.username}')
-    bot.send_message(message.chat.id, "Привет, это бот для просмотра расписания КИТиС!\nДля начала выбери свою группу с помощью команды /group, а после этого используй команду /schedule, чтобы посмотреть расписание выбранной группы!")
+    bot.send_message(message.chat.id, 'Привет, это бот для просмотра расписания КИТиС!\nДля начала выбери свою группу с помощью команды /group, а после этого используй команду /schedule, чтобы посмотреть расписание выбранной группы!')
 
     # check if user exists
     if db.user_exists(message.chat.id):
@@ -400,16 +414,15 @@ def schedule(message):
         bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
         return
     
-    request_notification = bot.send_message(message.chat.id, "Запрашиваю данные...\n\n<i>Если Вы видите этот текст больше 10 секунд, значит скорее всего что-то пошло не так...</i>", parse_mode='HTML')
+    request_notification = bot.send_message(message.chat.id, 'Запрашиваю данные...\n\n<i>Если Вы видите этот текст больше 10 секунд, значит скорее всего что-то пошло не так...</i>', parse_mode='HTML')
     
     # try to get schedule
     group = db.get_group(message.chat.id)
     try:
         result = get_schedule(get_url(group), group)
     except Exception as e:
-        bot.edit_message_text("Не удалось получить расписание! Попробуйте позже...", message.chat.id, request_notification.id)
-        log('e', 'r', f'error occurred: {e}')
-        return
+        bot.edit_message_text('Не удалось получить расписание! Попробуйте позже...', message.chat.id, request_notification.id)
+        raise
     bot.edit_message_text(result, message.chat.id, request_notification.id, parse_mode='HTML')
     db.update_schedule_request_time(message.chat.id)
     log('s', 'g', f'sent schedule // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
@@ -425,7 +438,7 @@ def scheduleother(message):
         log('s', 'y', f'request rejected (one-time): too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
         bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
         return
-    cur_bot_message = bot.send_message(message.chat.id, "Выберите группу (группа не сохраняется):", reply_markup=gm_groups())
+    cur_bot_message = bot.send_message(message.chat.id, 'Выберите группу (группа не сохраняется):', reply_markup=gm_groups())
     db.update_schedule_request_time(message.chat.id)
     cq_action = 'sched_other'
 
@@ -440,7 +453,7 @@ def group_pickup(message):
         log('g', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
         bot.send_message(message.chat.id, 'Вы слишком часто используете команду смены группы!\nВы можете менять группу используя уже присланную в предыдущих сообщениях таблицу с группами!')
         return
-    bot.send_message(message.chat.id, "Выберите группу:", reply_markup=gm_groups())
+    bot.send_message(message.chat.id, 'Выберите группу:', reply_markup=gm_groups())
     db.update_group_request_time(message.chat.id)
     log('g', 'b', f'sent group pickup message // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
     cq_action = 'group_pickup'
@@ -452,7 +465,7 @@ def callback_query(call):
     # Group pickup request
     if cq_action == 'group_pickup':
         db.set_group(call.message.chat.id, call.data)
-        bot.send_message(call.message.chat.id, f"Вы выбрали группу {db.get_group(call.message.chat.id)}!")
+        bot.send_message(call.message.chat.id, f'Вы выбрали группу {db.get_group(call.message.chat.id)}!')
         # Closing callback query (Unfreezing buttons)
         bot.answer_callback_query(call.id)
         # check if user has group
@@ -470,16 +483,15 @@ def callback_query(call):
         bot.answer_callback_query(call.id)
 
         bot.delete_message(call.message.chat.id, cur_bot_message.id)
-        request_notification = bot.send_message(call.message.chat.id, "Запрашиваю данные...\n\n<i>Если Вы видите этот текст больше 10 секунд, значит скорее всего что-то пошло не так...</i>", parse_mode='HTML')
+        request_notification = bot.send_message(call.message.chat.id, 'Запрашиваю данные...\n\n<i>Если Вы видите этот текст больше 10 секунд, значит скорее всего что-то пошло не так...</i>', parse_mode='HTML')
 
         # try to get schedule
         try:
             result = get_schedule(get_url(temp_group), temp_group)
         except Exception as e:
-            bot.edit_message_text("Не удалось получить расписание! Попробуйте позже...", call.message.chat.id, request_notification.id)
-            log('e', 'r', f'error occurred: {e}')
+            bot.edit_message_text('Не удалось получить расписание! Попробуйте позже...', call.message.chat.id, request_notification.id)
             cq_action = 'group_pickup'
-            return
+            raise
         bot.edit_message_text(result, call.message.chat.id, request_notification.id, parse_mode='HTML')
         log('s', 'g', f'sent schedule (one-time), group {temp_group} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
         cq_action = 'group_pickup'
@@ -504,10 +516,16 @@ def bot_ping(message):
         # website is working
         bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Работает!</b>\n<u>Адрес</u>: <i>http://94.72.18.202:8083/raspisanie/www/index.htm</i>\n<u>IP</u>: <i>94.72.18.202</i>\n<u>Порт</u>: <i>8083</i>\n<u>Код статуса</u>: <i>{response.status_code}</i>\n<u>Время отклика</u>: <i>{round(response.elapsed.microseconds / 1000) / 1000} сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
         log('p', 'g', f'successfully pinged website! // status code: {response.status_code}, elapsed time: {response.elapsed.microseconds / 1000} ms')
-    except Exception as e:
+    except Exception as exception:
+        if type(exception) == requests.ConnectTimeout:
+            # removing useless text
+            e = str(exception).split('ConnectionPool(')[1].split('): Max retries')[0]       # host='...', port=...
+            timeout = str(exception).split('connect timeout=')[1].removesuffix(')\'))')     # set timeout in seconds
+            log('p', 'r', f'connection timed out ({timeout}) // {e}')
+        else:
+            log('p', 'r', f'exception at bot_ping() // {exception}')
         # website is down
         bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Не отвечает!</b>\n<u>Адрес</u>: <i>http://94.72.18.202:8083/raspisanie/www/index.htm</i>\n<u>IP</u>: <i>94.72.18.202</i>\n<u>Порт</u>: <i>8083</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
-        log('p', 'r', f'can\'t connect to website! // exception: {e}')
 
 log('o', 'w', 'bot launched')
 # Launching bot polling
