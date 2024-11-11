@@ -87,13 +87,19 @@ class BotExceptionHandler(tb.ExceptionHandler):
     last_readtimeout_time = 0.0
     def handle(self, exception):
         # API HTTP exception
-        if type(exception) == tb.apihelper.ApiHTTPException:
-            if time.time() - self.last_apiexception_time > 20:      # check if error occurrs again within 20 seconds
-                error_code = str(exception).split('Error code: ')[1].split('. Description')[0]
+        if type(exception) == tb.apihelper.ApiTelegramException:
+            # get error code
+            error_code = str(exception).split('Error code: ')[1].split('. Description')[0]
+
+            # check if 502 or 429 error occurrs again within 20 seconds
+            if (error_code == '502' or error_code == '429') and time.time() - self.last_apiexception_time > 20:
                 log('e', 'r', f'HTTP request error ({error_code})', True, f'HTTP request returned {error_code}', 'e')
                 self.last_apiexception_time = time.time()
+            elif (error_code == '502' or error_code == '429'):
+                log('e', 'w', f'HTTP request error ({error_code})')
+            # other tg api exceptions
             else:
-                log('e', 'w', f'HTTP request error again')
+                log('e', 'r', f'{exception}', True, f'telegram api error ({error_code})', 'e')
         # connection timeout exception
         elif type(exception) == requests.ConnectTimeout:
             # removing useless text
@@ -102,7 +108,8 @@ class BotExceptionHandler(tb.ExceptionHandler):
             log('e', 'r', f'connection timed out ({timeout}) // {e}')
         # read timeout exception
         elif type(exception) == requests.ReadTimeout:
-            if time.time() - self.last_readtimeout_time > 60:       # check if error occurrs again within 60 seconds
+            # check if read timeout error occurrs again within 60 seconds
+            if time.time() - self.last_readtimeout_time > 60:
                 # removing useless text
                 e = str(exception).split('ConnectionPool(')[1].split('): Read')[0]          # host='...', port=...
                 timeout = str(exception).split('read timeout=')[1].removesuffix(')')        # set timeout in seconds
