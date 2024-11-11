@@ -495,13 +495,13 @@ def callback_query(call):
         # try to get schedule
         try:
             result = get_schedule(get_url(temp_group), temp_group)
+            bot.edit_message_text(result, call.message.chat.id, request_notification.id, parse_mode='HTML')
+            log('s', 'g', f'sent schedule (one-time), group {temp_group} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
+            cq_action = 'group_pickup'
         except Exception as e:
             bot.edit_message_text('Не удалось получить расписание! Попробуйте позже...', call.message.chat.id, request_notification.id)
             cq_action = 'group_pickup'
             raise
-        bot.edit_message_text(result, call.message.chat.id, request_notification.id, parse_mode='HTML')
-        log('s', 'g', f'sent schedule (one-time), group {temp_group} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
-        cq_action = 'group_pickup'
     
     # Callback query is empty wtf
     elif cq_action == 'none':
