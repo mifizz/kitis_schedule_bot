@@ -423,16 +423,16 @@ def schedule(message):
     
     request_notification = bot.send_message(message.chat.id, 'Запрашиваю данные...\n\n<i>Если Вы видите этот текст больше 10 секунд, значит скорее всего что-то пошло не так...</i>', parse_mode='HTML')
     
-    # try to get schedule
+    # try to get and send schedule
     group = db.get_group(message.chat.id)
     try:
         result = get_schedule(get_url(group), group)
+        bot.edit_message_text(result, message.chat.id, request_notification.id, parse_mode='HTML')
+        db.update_schedule_request_time(message.chat.id)
+        log('s', 'g', f'sent schedule // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
     except Exception as e:
         bot.edit_message_text('Не удалось получить расписание! Попробуйте позже...', message.chat.id, request_notification.id)
         raise
-    bot.edit_message_text(result, message.chat.id, request_notification.id, parse_mode='HTML')
-    db.update_schedule_request_time(message.chat.id)
-    log('s', 'g', f'sent schedule // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
 
 # One time schedule command (scheduleother)
 @bot.message_handler(commands=['scheduleother'])
