@@ -45,6 +45,14 @@ If you want colored debug output in your terminal or if you are using **cat** to
 python bot.py -c
 ```
 
+### Notifications
+You can receive notifications about errors, warnings, etc on ntfy.sh if you want to. Use *-n* or *--notifications* flag with ntfy.sh topic after when launching bot, eg.
+```
+python bot.py -n kitis_bot_notifications
+```
+
+Full ntfy.sh URL for this example will be **https://ntfy.sh/kitis_bot_notifications**.
+
 ## Dependencies
 For this bot to work, you need to install some libraries with **pip** (just paste this command and press Enter).
 ```
@@ -95,6 +103,14 @@ python bot.py -t ВАШ_ТОКЕН
 ```
 python bot.py -c
 ```
+
+### Уведомления
+Вы можете получать уведомления об ошибках, предупреждениях и т.д. в ntfy.sh, если хотите. Используйте флаг *-n* или *--notifications* с темой ntfy.sh после флага при запуске бота. Например:
+```
+python bot.py -n kitis_bot_notifications
+```
+
+В данном примере полная ссылка для ntfy.sh будет **https://ntfy.sh/kitis_bot_notifications**.
 
 ## Зависимости
 Чтобы бот работал, Вам нужно установить следующие библиотеки с помощью **pip** (просто вставьте следующую команду и нажмите Enter):
