@@ -1,10 +1,11 @@
-import sqlite3, time
+import sqlite3
 
 class database:
 
     def __init__(self, db_file):
         self.connection = sqlite3.connect(db_file, check_same_thread=False)
         self.cursor = self.connection.cursor()
+        # create a new database table if not exists
         self.cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
                             id INTEGER PRIMARY KEY, 
@@ -19,6 +20,7 @@ CREATE TABLE IF NOT EXISTS users (
         # here goes checks for all new columns that were added with updates
         self.add_column_if_not_exists('last_ping_request_time', 'REAL', 0)
     
+    # guess what does this do
     def add_column_if_not_exists(self, c_name: str, c_type: str, c_default=None):
         # fetch all columns from database
         columns = [info[1] for info in self.cursor.execute('PRAGMA table_info(users)').fetchall()]
@@ -41,51 +43,22 @@ CREATE TABLE IF NOT EXISTS users (
     def user_has_group(self, user_id):
         result = self.cursor.execute('SELECT user_group FROM users WHERE user_id = ?', (user_id,))
         return bool(len(result.fetchall()))
-
-    # Getting database 'id' of user
-    def get_db_id(self, user_id):
-        result = self.cursor.execute('SELECT id FROM users WHERE user_id = ?', (user_id,))
-        return result.fetchone()[0]
     
-    def get_group(self, user_id):
-        result = self.cursor.execute('SELECT user_group FROM users WHERE user_id = ?', (user_id,))
-        return result.fetchone()[0]
-    
-    # Adding user to database
+    # Add user to database
     def add_user(self, user_id, username):
         self.cursor.execute('INSERT INTO users (`user_id`, `username`, `last_schedule_request_time`, `last_group_request_time`) VALUES (?, ?, ?, ?)', (user_id, username, 0, 0))
         return self.connection.commit()
     
-    # Set user group
-    def set_group(self, user_id, group):
-        #self.cursor.execute('UPDATE `users` SET `group` = ? WHERE `user_id` = ?', [group, user_id])
-        self.cursor.execute('UPDATE users SET user_group = ? WHERE user_id = ?', (group, user_id))
+    # set value in given column
+    def update_value(self, user_id: int, column: str, value: None):
+        self.cursor.execute(f'UPDATE users SET {column} = \'{value}\' WHERE user_id = {user_id}')
         return self.connection.commit()
-    
-    def update_schedule_request_time(self, user_id):
-        self.cursor.execute('UPDATE users SET last_schedule_request_time = ? WHERE user_id = ?', (time.time(), user_id))
-        return self.connection.commit()
-    
-    def update_group_request_time(self, user_id):
-        self.cursor.execute('UPDATE users SET last_group_request_time = ? WHERE user_id = ?', (time.time(), user_id))
-        return self.connection.commit()
-    
-    def update_ping_request_time(self, user_id):
-        self.cursor.execute('UPDATE users SET last_ping_request_time = ? WHERE user_id = ?', (time.time(), user_id))
-        return self.connection.commit()
-    
-    def get_schedule_request_time(self, user_id):
-        result = self.cursor.execute('SELECT last_schedule_request_time FROM users WHERE user_id = ?', (user_id,))
-        return result.fetchone()[0]
-    
-    def get_group_request_time(self, user_id):
-        result = self.cursor.execute('SELECT last_group_request_time FROM users WHERE user_id = ?', (user_id,))
-        return result.fetchone()[0]
-    
-    def get_ping_request_time(self, user_id):
-        result = self.cursor.execute('SELECT last_ping_request_time FROM users WHERE user_id = ?', (user_id,))
+
+    # get value from given column
+    def get_value(self, user_id: int, column: str):
+        result = self.cursor.execute(f'SELECT {column} FROM users WHERE user_id = {user_id}')
         return result.fetchone()[0]
 
-    # CLosing database connection
+    # CLose database connection. Just for fun i guess
     def close(self):
         self.connection.close()
