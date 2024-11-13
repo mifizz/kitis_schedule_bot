@@ -383,12 +383,9 @@ def gm_groups():
     markup.add(*IKB_list)
     return markup
 
-# following 2 methods is just checking for spam in 'schedule' and 'group' commands
-def is_schedule_spam(prev_time):
-    return (time.time() - prev_time) < 5
-
-def is_group_spam(prev_time):
-    return (time.time() - prev_time) < 5
+# check spam for certain commands
+def is_spam(prev_use_time: float, cooldown: float):
+    return (time.time() - prev_use_time) < cooldown
 
 # Start message command
 @bot.message_handler(commands=['start'])
@@ -416,7 +413,7 @@ def schedule(message):
         bot.send_message(message.chat.id, 'Сначала выберите группу! - /group')
         return
     # check if using commands too fast (spamming)
-    if is_schedule_spam(db.get_schedule_request_time(message.chat.id)):
+    if is_spam(db.get_schedule_request_time(message.chat.id), 5):
         log('s', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
         bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
         return
@@ -441,7 +438,7 @@ def scheduleother(message):
     
     log('s', 'b', f'schedule request (one-time) // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
     # check if using commands too fast (spamming)
-    if is_schedule_spam(db.get_schedule_request_time(message.chat.id)):
+    if is_spam(db.get_schedule_request_time(message.chat.id), 5):
         log('s', 'y', f'request rejected (one-time): too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
         bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
         return
@@ -456,7 +453,7 @@ def group_pickup(message):
 
     log('g', 'b', f'group pickup request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
     # check if using commands too fast (spamming)
-    if is_group_spam(db.get_group_request_time(message.chat.id)):
+    if is_spam(db.get_group_request_time(message.chat.id), 5):
         log('g', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
         bot.send_message(message.chat.id, 'Вы слишком часто используете команду смены группы!\nВы можете менять группу используя уже присланную в предыдущих сообщениях таблицу с группами!')
         return
@@ -516,7 +513,13 @@ def callback_query(call):
 @bot.message_handler(commands=['ping'])
 def bot_ping(message):
     log('p', 'b', f'ping request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+    # check for spam
+    if is_spam(db.get_ping_request_time(message.chat.id), 5):
+        log('p', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+        bot.send_message(message.chat.id, 'Вы слишком часто используете команду <b>ping</b>!', parse_mode='HTML')
+        return
     cur_bot_message = bot.send_message(message.chat.id, f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Ожидание ответа...</b>\n<u>Адрес</u>: <i>http://94.72.18.202:8083/raspisanie/www/index.htm</i>\n<u>IP</u>: <i>94.72.18.202</i>\n<u>Порт</u>: <i>8083</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', parse_mode='HTML')
+    db.update_ping_request_time(message.chat.id)
     try:
         # try to get website response
         response = requests.get('http://94.72.18.202:8083/raspisanie/www/', timeout=5)
