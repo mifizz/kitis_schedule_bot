@@ -395,38 +395,38 @@ def start(message):
 
     # check if user exists
     if db.user_exists(message.chat.id):
-        log('t', 'g', f'user exists // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+        log('t', 'g', f'user exists // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
     # add user to database if there is not
     else:
         log('t', 'y', f'user is not in database // id: {message.chat.id}, username: {message.chat.username}')
         db.add_user(message.chat.id, message.chat.username)
-        log('t', 'g', f'added user to database // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+        log('t', 'g', f'added user to database // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
 
 # Schedule command
 @bot.message_handler(commands=['schedule'])
 def schedule(message):
-    log('s', 'b', f'schedule request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+    log('s', 'b', f'schedule request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
     
     # check if group is set
-    if not db.get_group(message.chat.id):
-        log('s', 'y', f'request rejected: group is empty! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+    if not db.get_value(message.chat.id, 'user_group'):
+        log('s', 'y', f'request rejected: group is empty! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
         bot.send_message(message.chat.id, 'Сначала выберите группу! - /group')
         return
     # check if using commands too fast (spamming)
-    if is_spam(db.get_schedule_request_time(message.chat.id), 5):
-        log('s', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+    if is_spam(db.get_value(message.chat.id, 'last_schedule_request_time'), 5):
+        log('s', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
         bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
         return
     
     request_notification = bot.send_message(message.chat.id, 'Запрашиваю данные...\n\n<i>Если Вы видите этот текст больше 10 секунд, значит скорее всего что-то пошло не так...</i>', parse_mode='HTML')
     
     # try to get and send schedule
-    group = db.get_group(message.chat.id)
+    group = db.get_value(message.chat.id, 'user_group')
     try:
         result = get_schedule(get_url(group), group)
         bot.edit_message_text(result, message.chat.id, request_notification.id, parse_mode='HTML')
-        db.update_schedule_request_time(message.chat.id)
-        log('s', 'g', f'sent schedule // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+        db.update_value(message.chat.id, 'last_schedule_request_time', time.time())
+        log('s', 'g', f'sent schedule // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
     except Exception as e:
         bot.edit_message_text('Не удалось получить расписание! Попробуйте позже...', message.chat.id, request_notification.id)
         raise
@@ -436,14 +436,14 @@ def schedule(message):
 def scheduleother(message):
     global cq_action, cur_bot_message
     
-    log('s', 'b', f'schedule request (one-time) // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+    log('s', 'b', f'schedule request (one-time) // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
     # check if using commands too fast (spamming)
-    if is_spam(db.get_schedule_request_time(message.chat.id), 5):
-        log('s', 'y', f'request rejected (one-time): too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+    if is_spam(db.get_value(message.chat.id, 'last_schedule_request_time'), 5):
+        log('s', 'y', f'request rejected (one-time): too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
         bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
         return
     cur_bot_message = bot.send_message(message.chat.id, 'Выберите группу (группа не сохраняется):', reply_markup=gm_groups())
-    db.update_schedule_request_time(message.chat.id)
+    db.update_value(message.chat.id, 'last_schedule_request_time', time.time())
     cq_action = 'sched_other'
 
 # Group pickup command
@@ -451,15 +451,15 @@ def scheduleother(message):
 def group_pickup(message):
     global cq_action
 
-    log('g', 'b', f'group pickup request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+    log('g', 'b', f'group pickup request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
     # check if using commands too fast (spamming)
-    if is_spam(db.get_group_request_time(message.chat.id), 5):
-        log('g', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+    if is_spam(db.get_value(message.chat.id, 'last_group_request_time'), 5):
+        log('g', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
         bot.send_message(message.chat.id, 'Вы слишком часто используете команду смены группы!\nВы можете менять группу используя уже присланную в предыдущих сообщениях таблицу с группами!')
         return
     bot.send_message(message.chat.id, 'Выберите группу:', reply_markup=gm_groups())
-    db.update_group_request_time(message.chat.id)
-    log('g', 'b', f'sent group pickup message // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+    db.update_value(message.chat.id, 'last_group_request_time', time.time())
+    log('g', 'b', f'sent group pickup message // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
     cq_action = 'group_pickup'
 
 # Callback query handler (buttons in bot messages)
@@ -468,16 +468,16 @@ def callback_query(call):
     global cq_action
     # Group pickup request
     if cq_action == 'group_pickup':
-        db.set_group(call.message.chat.id, call.data)
-        bot.send_message(call.message.chat.id, f'Вы выбрали группу {db.get_group(call.message.chat.id)}!')
+        db.update_value(call.message.chat.id, 'user_group', call.data)
+        bot.send_message(call.message.chat.id, f'Вы выбрали группу {db.get_value(call.message.chat.id, 'user_group')}!')
         # Closing callback query (Unfreezing buttons)
         bot.answer_callback_query(call.id)
         # check if user has group
         if db.user_has_group(call.message.chat.id):
-            log('g', 'g', f'picked group {db.get_group(call.message.chat.id)} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
+            log('g', 'g', f'picked group {db.get_value(call.message.chat.id, 'user_group')} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_value(call.message.chat.id, 'id')}')
         # why the fuck it did not set a group :sob:
         else:
-            log('g', 'r', f'what the actual fuck happened (group is not set after trying to set it) // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
+            log('g', 'r', f'what the actual fuck happened (group is not set after trying to set it) // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_value(call.message.chat.id, 'id')}')
         cq_action = 'group_pickup'
     
     # Schedule request (one-time)
@@ -493,7 +493,7 @@ def callback_query(call):
         try:
             result = get_schedule(get_url(temp_group), temp_group)
             bot.edit_message_text(result, call.message.chat.id, request_notification.id, parse_mode='HTML')
-            log('s', 'g', f'sent schedule (one-time), group {temp_group} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
+            log('s', 'g', f'sent schedule (one-time), group {temp_group} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_value(call.message.chat.id, 'id')}')
             cq_action = 'group_pickup'
         except Exception as e:
             bot.edit_message_text('Не удалось получить расписание! Попробуйте позже...', call.message.chat.id, request_notification.id)
@@ -504,22 +504,22 @@ def callback_query(call):
     elif cq_action == 'none':
         bot.answer_callback_query(call.id)
         bot.send_message(call.message.chat.id, 'Не могу выполнить запрос!')
-        log('w', 'u', f'empty callback query action // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
+        log('u', 'y', f'empty callback query action // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_value(call.message.chat.id, 'id')}')
     # Unknown callback query action (you are cooked up)
     else:
-        log('w', 'u', f'unknown callback query action // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_db_id(call.message.chat.id)}')
+        log('u', 'y', f'unknown callback query action // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_value(call.message.chat.id, 'id')}')
 
 # ping command
 @bot.message_handler(commands=['ping'])
 def bot_ping(message):
-    log('p', 'b', f'ping request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+    log('p', 'b', f'ping request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
     # check for spam
-    if is_spam(db.get_ping_request_time(message.chat.id), 5):
-        log('p', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_db_id(message.chat.id)}')
+    if is_spam(db.get_value(message.chat.id, 'last_ping_request_time'), 5):
+        log('p', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
         bot.send_message(message.chat.id, 'Вы слишком часто используете команду <b>ping</b>!', parse_mode='HTML')
         return
     cur_bot_message = bot.send_message(message.chat.id, f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Ожидание ответа...</b>\n<u>Адрес</u>: <i>http://94.72.18.202:8083/raspisanie/www/index.htm</i>\n<u>IP</u>: <i>94.72.18.202</i>\n<u>Порт</u>: <i>8083</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', parse_mode='HTML')
-    db.update_ping_request_time(message.chat.id)
+    db.update_value(message.chat.id, 'last_ping_request_time', time.time())
     try:
         # try to get website response
         response = requests.get('http://94.72.18.202:8083/raspisanie/www/', timeout=5)
