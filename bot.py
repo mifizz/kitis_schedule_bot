@@ -382,6 +382,7 @@ def gm_groups():
     
     markup.add(*IKB_list)
     return markup
+kb_markup = gm_groups()
 
 # check spam for certain commands
 def is_spam(prev_use_time: float, cooldown: float):
@@ -442,7 +443,7 @@ def scheduleother(message):
         log('s', 'y', f'request rejected (one-time): too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
         bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
         return
-    cur_bot_message = bot.send_message(message.chat.id, 'Выберите группу (группа не сохраняется):', reply_markup=gm_groups())
+    cur_bot_message = bot.send_message(message.chat.id, 'Выберите группу (группа не сохраняется):', reply_markup=kb_markup)
     db.update_value(message.chat.id, 'last_schedule_request_time', time.time())
     cq_action = 'sched_other'
 
@@ -452,14 +453,7 @@ def group_pickup(message):
     global cq_action
 
     log('g', 'b', f'group pickup request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
-    # check if using commands too fast (spamming)
-    if is_spam(db.get_value(message.chat.id, 'last_group_request_time'), 5):
-        log('g', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
-        bot.send_message(message.chat.id, 'Вы слишком часто используете команду смены группы!\nВы можете менять группу используя уже присланную в предыдущих сообщениях таблицу с группами!')
-        return
-    bot.send_message(message.chat.id, 'Выберите группу:', reply_markup=gm_groups())
-    db.update_value(message.chat.id, 'last_group_request_time', time.time())
-    log('g', 'b', f'sent group pickup message // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
+    bot.send_message(message.chat.id, 'Выберите группу:', reply_markup=kb_markup)
     cq_action = 'group_pickup'
 
 # Callback query handler (buttons in bot messages)
@@ -468,6 +462,14 @@ def callback_query(call):
     global cq_action
     # Group pickup request
     if cq_action == 'group_pickup':
+        # check if using commands too fast (spamming)
+        if is_spam(db.get_value(call.message.chat.id, 'last_group_request_time'), 3):
+            log('g', 'y', f'request rejected: too many requests in 3 seconds! // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_value(call.message.chat.id, 'id')}')
+            bot.send_message(call.message.chat.id, 'Вы слишком часто меняете группу! Подождите немного...')
+            # Closing callback query (Unfreezing buttons)
+            bot.answer_callback_query(call.id)
+            return
+        db.update_value(call.message.chat.id, 'last_group_request_time', time.time())
         db.update_value(call.message.chat.id, 'user_group', call.data)
         bot.send_message(call.message.chat.id, f'Вы выбрали группу {db.get_value(call.message.chat.id, 'user_group')}!')
         # Closing callback query (Unfreezing buttons)
