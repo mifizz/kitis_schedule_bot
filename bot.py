@@ -123,7 +123,7 @@ class BotExceptionHandler(tb.ExceptionHandler):
             e = str(exception).split("Max retries exceeded with url: /bot")[0]
             e += "<SECURE_INFORMATION>"
             e += str(exception).split("&timeout=10")[1]
-            log('e', 'r', f'{e}', True, f'{e}')
+            log('e', 'r', f'{e}', True, f'HTTPSConnectionPool error', 'e')
         else:
             log('e', 'r', f'{exception}', True, 'you cooked', 'e')
         return exception
