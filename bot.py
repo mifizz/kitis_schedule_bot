@@ -119,6 +119,11 @@ class BotExceptionHandler(tb.ExceptionHandler):
                 log('e', 'w', 'read timed out again')
         # other exceptions
         # if you got these you probably cooked up
+        if str(exception).count("Max retries exceeded with url: /bot") > 0:
+            e = str(exception).split("Max retries exceeded with url: /bot")[0]
+            e += "<SECURE_INFORMATION>"
+            e += str(exception).split("&timeout=10")[1]
+            log('e', 'r', f'{e}', True, f'{e}')
         else:
             log('e', 'r', f'{exception}', True, 'you cooked', 'e')
         return exception
