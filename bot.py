@@ -117,6 +117,11 @@ class BotExceptionHandler(tb.ExceptionHandler):
                 self.last_readtimeout_time = time.time()
             else:
                 log('e', 'w', 'read timed out again')
+        # telegram api HTTPConnectionPool error (network is unreachable)
+        elif str(exception).count(f"{TOKEN}") > 0:
+            e = str(exception)
+            e = e.replace(f"{TOKEN}", "<BOT_TOKEN>")
+            log('e', 'r', f"{e}", True, "Telegram API HTTPConnectionPool", 'e')
         # other exceptions
         # if you got these you probably cooked up
         else:
