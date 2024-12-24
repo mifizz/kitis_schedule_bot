@@ -24,6 +24,7 @@ def log(tag='u', color='b', text='undefined', will_notify=False, post_title='unt
         'g':'group', # group tag
         's':'sched', # schedule tag
         'p':'ping?', # ping tag
+        'a':'anncm', # announcement tag
         'e':'error', # important error tag
         'o':'other', # tag for other information
         'u':'undef'  # undefined tag
@@ -125,7 +126,7 @@ class BotExceptionHandler(tb.ExceptionHandler):
         # other exceptions
         # if you got these you probably cooked up
         else:
-            log('e', 'r', f'{exception}', True, 'you cooked', 'e')
+            log('e', 'r', f'error: {exception}, type: {type(exception)}', True, 'you cooked', 'e')
         return exception
 
 # Arguments and flags
@@ -543,6 +544,86 @@ def bot_ping(message):
             log('p', 'r', f'exception at bot_ping() // {exception}')
         # website is down
         bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Не отвечает!</b>\n<u>Адрес</u>: <i>http://94.72.18.202:8083/raspisanie/www/index.htm</i>\n<u>IP</u>: <i>94.72.18.202</i>\n<u>Порт</u>: <i>8083</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
+
+# ADMIN / DEBUG COMMANDS - ONLY WORKS IF SENDER IS IN ADMIN LIST
+# read admin list from file
+admin_list = []
+with open('admin.list', 'r', encoding='utf-8') as file:
+    admin_list = file.read().splitlines()
+
+# announcement command
+command_announ = "announcement"
+# ex.
+# /announcement
+# text
+# \ANN_END
+# INCLUDE
+# \MODE_END
+# 1234567890
+
+@bot.message_handler(commands=[f'{command_announ}'])
+def bot_ping(message, file_id = ''):
+    # check if in admin list
+    if (str(message.chat.id) not in admin_list):
+        return
+    
+    # get text of message
+    if (file_id != ''):
+        # message has image
+        ann_mes = str(message.caption)
+        log('a', 'w', f'announcement image file_id: {file_id}')
+    else:
+        ann_mes = str(message.text)
+    # check receiving mode ( INCLUDE / EXCLUDE )
+    ann_mode = ann_mes.split("\\ANN_END\n")[1].splitlines()[0]
+    # get IDs of announcement receivers
+    ann_ids = ann_mes.split("\\MODE_END\n")[1].splitlines()
+    temp_ann_ids = ann_ids
+    # get actual message
+    ann_mes = ann_mes.removeprefix(f"/{command_announ}\n").split("\\ANN_END")[0].removesuffix("\\ANN_END").strip()
+
+    # update ann_ids list to all known IDs without excluded IDs
+    if ann_mode == "EXCLUDE":
+        # get all IDs
+        ann_ids = db.get_all_values('user_id')
+        ann_ids.reverse()
+        # format all IDs
+        for i in range(len(ann_ids)):
+            ann_ids[i] = str(ann_ids[i]).removeprefix('(').removesuffix(',)')
+
+        # remove excluded IDs from list
+        for ex_id in temp_ann_ids:
+            try:
+                ann_ids.remove(ex_id)
+            except:
+                # excluded ID not found
+                log('a', 'y', f'user {ex_id} not found in database!')
+    
+    # log   :exploding_head:
+    log('a', 'w', f'sending an announcement to {str(ann_ids)}')
+
+    # send to all receivers
+    for id in ann_ids:
+        try:
+            # check if message has image
+            if (file_id != ''):
+                # message has image - send it too
+                bot.send_photo(id, file_id, ann_mes, parse_mode='HTML')
+            else:
+                bot.send_message(id, ann_mes, parse_mode='HTML', disable_web_page_preview=True)
+        except:
+            # failed to send to some user ( chat not found most likely )
+            log('a', 'r', f'failed to send announcement to {id}')
+    
+    # distribution complete
+    log('a', 'g', f'sent announcement:\n{ann_mes}')
+
+# handle messages with photos
+@bot.message_handler(content_types=['photo'])
+def photo_handler(message):
+    # announcement with image
+    if message.caption and f'/{command_announ}' in message.caption:
+        bot_ping(message, message.photo[-1].file_id)
 
 log('o', 'w', 'bot launched')
 # Launching bot polling
