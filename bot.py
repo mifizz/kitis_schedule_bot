@@ -548,8 +548,13 @@ def bot_ping(message):
 # ADMIN / DEBUG COMMANDS - ONLY WORKS IF SENDER IS IN ADMIN LIST
 # read admin list from file
 admin_list = []
-with open('admin.list', 'r', encoding='utf-8') as file:
-    admin_list = file.read().splitlines()
+if os.path.exists('admin.list'):
+    with open('admin.list', 'r', encoding='utf-8') as file:
+        admin_list = file.read().splitlines()
+# admin.list file doesn't exist
+else:
+    log('e', 'r', "you must create 'admin.list' file first with at least 1 telegram user id (admin user id)!\nwrite -1 in that file if you don't want to add any admin.")
+    exit(1)
 
 # announcement command
 command_announ = "announcement"
