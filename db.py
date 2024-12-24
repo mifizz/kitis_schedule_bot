@@ -59,6 +59,11 @@ CREATE TABLE IF NOT EXISTS users (
         result = self.cursor.execute(f'SELECT {column} FROM users WHERE user_id = {user_id}')
         return result.fetchone()[0]
 
+    # get all values of given column
+    def get_all_values(self, column: str):
+        result = self.cursor.execute(f'SELECT {column} FROM users')
+        return result.fetchall()
+
     # CLose database connection. Just for fun i guess
     def close(self):
         self.connection.close()
