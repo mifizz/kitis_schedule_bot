@@ -19,6 +19,14 @@ After you set up your new bot you need to get your bot token. To do this you nee
 ### Launching bot
 Before you can launch bot you need to install dependencies. They are listed in [dependencies](#dependencies) section
 
+Create *admin.list* file and then write all admin telegram user IDs separating it with new lines, eg.:
+```
+1234567890
+111222333
+0987654321
+```
+If you don't want to add any admin just type -1 instead of user id.
+
 Finally, you can launch your bot using API token. You currently have 2 options of doing this:
 1. Create *.env* file in the same directory as all *.py* files located. Here you need to paste this string and change **YOUR TOKEN HERE** to your bot token (token MUST be in quotes):
 ```
@@ -77,6 +85,14 @@ group - ЭТО КОМАНДА ДЛЯ ВЫБОРА ГРУППЫ
 
 ### Запуск бота
 Перед тем, как запустить бота, Вам нужно установить зависимости. Они указаны в разделе [Зависимости](#зависимости).
+
+Создайте файл *admin.list* и запишите туда все user id телеграма админов, разделяя их новыми строками, например:
+```
+1234567890
+111222333
+0987654321
+```
+Если Вы не хотите добавлять админов, просто напишите -1 вместо user id.
 
 Наконец, Вы можете запустить бота используя API токен. На данный момент есть 2 способа сделать это:
 1. Создайте файл *.env* в той же директории, где находятся все *.py* файлы. В этом файле вам нужно вставить эту строчку, поменяв **ВАШ ТОКЕН** на Ваш токен бота (токен ДОЛЖЕН быть в кавычках):
