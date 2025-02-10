@@ -307,7 +307,7 @@ cur_bot_message = tb.types.Message # last message bot sent (for editing or delet
 
 # get full link for schedule request
 def get_url(group):
-    url = 'http://94.72.18.202:8083/raspisanie/www/cg'
+    url = 'http://94.72.18.202:8083/cg'
     url += url_dict[group] + '.htm'
     return url
 
@@ -533,13 +533,13 @@ def bot_ping(message):
         log('p', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
         bot.send_message(message.chat.id, 'Вы слишком часто используете команду <b>ping</b>!', parse_mode='HTML')
         return
-    cur_bot_message = bot.send_message(message.chat.id, f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Ожидание ответа...</b>\n<u>Адрес</u>: <i>http://94.72.18.202:8083/raspisanie/www/index.htm</i>\n<u>IP</u>: <i>94.72.18.202</i>\n<u>Порт</u>: <i>8083</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', parse_mode='HTML')
+    cur_bot_message = bot.send_message(message.chat.id, f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Ожидание ответа...</b>\n<u>Адрес</u>: <i>http://94.72.18.202:8083/index.htm</i>\n<u>IP</u>: <i>94.72.18.202</i>\n<u>Порт</u>: <i>8083</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', parse_mode='HTML')
     db.update_value(message.chat.id, 'last_ping_request_time', time.time())
     try:
         # try to get website response
-        response = requests.get('http://94.72.18.202:8083/raspisanie/www/', timeout=5)
+        response = requests.get('http://94.72.18.202:8083', timeout=5)
         # website is working
-        bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Работает!</b>\n<u>Адрес</u>: <i>http://94.72.18.202:8083/raspisanie/www/index.htm</i>\n<u>IP</u>: <i>94.72.18.202</i>\n<u>Порт</u>: <i>8083</i>\n<u>Код статуса</u>: <i>{response.status_code}</i>\n<u>Время отклика</u>: <i>{round(response.elapsed.microseconds / 1000) / 1000} сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
+        bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Работает!</b>\n<u>Адрес</u>: <i>http://94.72.18.202:8083/index.htm</i>\n<u>IP</u>: <i>94.72.18.202</i>\n<u>Порт</u>: <i>8083</i>\n<u>Код статуса</u>: <i>{response.status_code}</i>\n<u>Время отклика</u>: <i>{round(response.elapsed.microseconds / 1000) / 1000} сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
         log('p', 'g', f'successfully pinged website! // status code: {response.status_code}, elapsed time: {response.elapsed.microseconds / 1000} ms')
     except Exception as exception:
         if type(exception) == requests.ConnectTimeout:
@@ -550,7 +550,7 @@ def bot_ping(message):
         else:
             log('p', 'r', f'exception at bot_ping() // {exception}')
         # website is down
-        bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Не отвечает!</b>\n<u>Адрес</u>: <i>http://94.72.18.202:8083/raspisanie/www/index.htm</i>\n<u>IP</u>: <i>94.72.18.202</i>\n<u>Порт</u>: <i>8083</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
+        bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Не отвечает!</b>\n<u>Адрес</u>: <i>http://94.72.18.202:8083/index.htm</i>\n<u>IP</u>: <i>94.72.18.202</i>\n<u>Порт</u>: <i>8083</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
 
 # ADMIN / DEBUG COMMANDS - ONLY WORKS IF SENDER IS IN ADMIN LIST
 # read admin list from file
