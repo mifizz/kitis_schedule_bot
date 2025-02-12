@@ -1,4 +1,4 @@
-import requests, os, time, sys, logging, dotenv, argparse, toml
+import requests, os, time, sys, logging, dotenv, argparse, toml, subprocess
 import telebot as tb
 from bs4 import BeautifulSoup
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -219,78 +219,25 @@ bells = {
     '6 Пара':'17:10-18:40',
     '7 Пара':'18:50-20:20'
 }
-# every link for group schedule contain a specific number in it
-# eg. for 'http://94.72.18.202:8083/raspisanie/www/cg237.htm' that number is 237
-# so there is a dictionary with all groups and numbers for them
-url_dict = { 
-        'СОД23-1':  '59',
-        'СОД23-2К': '60',
-        'СОД24-1':  '61',
-        'СОД24-2К': '62',
-        'СОД22-1':  '63',
-        'СОД22-2К': '64',
-        'С21-1':    '65',
-        'С21-2':    '66',
-        'С21-4К':   '67',
-        'С21УЗ':    '68',
-        'С22-1':    '69',
-        'С22-2':    '70',
-        'С22-3К':   '71',
-        'С22уз':    '72',
-        'С23-1':    '73',
-        'С23-2':    '74',
-        'С23-3К':   '75',
-        'С23УЗ':    '76',
-        'С24-1':    '77',
-        'С24-2':    '78',
-        'С24-3К':   '79',
-        'С24УЗ':    '80',
-        'УМД 22-1': '81',
-        'УМД23-1':  '82',
-        'УМД24-1':  '83',
-        'ИМс24-1':  '84',
-        'СА21-1':   '85',
-        'СА21-2К':  '86',
-        'СА22-1':   '87',
-        'СА22-2':   '88',
-        'СА23-1':   '89',
-        'СА23-2':   '90',
-        'СА24-1':   '91',
-        'СА24-2':   '92',
-        'СА24УЗ':   '93',
-        'ИСа 22-1': '94',
-        'ИСа23-1':  '95',
-        'ИСа24-1':  '96',
-        'ИСп 21-1': '97',
-        'ИСп 21-2К':'98',
-        'ИСп 22-1': '99',
-        'ИСп23-1':  '100',
-        'ИСп23-2К': '101',
-        'ИСп24-1':  '102',
-        'ИСп24-2К': '103',
-        'ИСр 22-1': '104',
-        'ИСр23-1':  '105',
-        'ИСр24-1':  '106',
-        'ИСс 22-1': '107',
-        'ИСс24-1':  '108',
-        'СВ22-1К':  '109',
-        'СВ23-1':   '110',
-        'СВ23-2К':  '111',
-        'СВ24-1':   '112',
-        'СВ24-2К':  '113',
-        'М22-1':    '114',
-        'М23-1':    '115',
-        'М24-1':    '116'
-}
+# url_dict contains relative links that are used to 
+# get full url of group schedule
+# parse groups into toml file and use it as groups url dictionary
+log('o', 'w', 'running group parser...')
+group_parser = subprocess.run([sys.executable, "group_parser.py"])
+if group_parser.returncode == 0:
+    log('o', 'w', 'successfully parsed groups into groups.toml')
+else:
+    log('e', 'r', f'group parser returned error code {group_parser.returncode}. aborting...')
+    exit(group_parser.returncode)
+
+url_dict = toml.load('groups.toml')["groups"]
 groups_count = len(url_dict)
 
 cur_bot_message = tb.types.Message # last message bot sent (for editing or deleting message)
 
 # get full link for schedule request
 def get_url(group):
-    url = 'http://94.72.18.202:8083/cg'
-    url += url_dict[group] + '.htm'
-    return url
+    return cfg["groups"]["url_start"] + url_dict[group]
 
 # i hope u can guess what does this method do :)
 # maybe i will add more comments to this (i am lazy)
