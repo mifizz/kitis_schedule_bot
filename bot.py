@@ -1,4 +1,4 @@
-import requests, os, time, sys, logging, dotenv
+import requests, os, time, sys, logging, dotenv, argparse
 import telebot as tb
 from bs4 import BeautifulSoup
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -30,7 +30,7 @@ def log(tag='u', color='b', text='undefined', will_notify=False, post_title='unt
         'u':'undef'  # undefined tag
     }
 
-    if args_colored:
+    if args.colored:
         output = '\033[90m' + time.asctime() + '\033[0m ' + colors[color] + '[' + tags[tag] + ']\033[0m > ' + text
         print(output)
     else:
@@ -39,7 +39,7 @@ def log(tag='u', color='b', text='undefined', will_notify=False, post_title='unt
     logger.info(output)
 
     # send notification if enabled
-    if args_notify and will_notify:
+    if args.notifications and will_notify:
         match post_tag:
             # info
             case 'i':
@@ -54,9 +54,8 @@ def log(tag='u', color='b', text='undefined', will_notify=False, post_title='unt
 logger.info('-----------------------------------------')
 
 # notifications via ntfy
-post_topic = ''
 def post_ntfy(tag='i', title='untitled', text='none', priority='l'):
-    global args_notify
+    global use_ntfy
     tags = {
         'i':'speech_balloon',   # info tag
         'w':'warning',          # warning tag
@@ -70,17 +69,17 @@ def post_ntfy(tag='i', title='untitled', text='none', priority='l'):
         'm':'min'               # lowest priority
     }
 
-    post_req = requests.post(f'https://ntfy.sh/{post_topic}',
+    post_req = requests.post(f'https://ntfy.sh/{args.notifications}',
         data=f'{text}',
         headers={
             'Title': f'{title}',
             'Priority': f'{priorities[priority]}',
             'Tags': f'{tags[tag]}'
         })
-    print(post_req.status_code)
+    # print(post_req.status_code)
     if post_req.status_code != 200:
-        args_notify = False
-        log('e', 'r', f'exception at post_ntfy() // can\'t access \'ntfy.sh/{post_topic}\' (status code: {post_req.status_code}). Notifications are now disabled.')
+        use_ntfy = False
+        log('e', 'r', f'exception at post_ntfy() // can\'t access \'ntfy.sh/{args.notifications}\' (status code: {post_req.status_code}). Notifications are now disabled.')
 
 # Exception handler
 class BotExceptionHandler(tb.ExceptionHandler):
@@ -126,86 +125,40 @@ class BotExceptionHandler(tb.ExceptionHandler):
         # other exceptions
         # if you got these you probably cooked up
         else:
-            log('e', 'r', f'error: {exception}, type: {type(exception)}', True, 'you cooked', 'e')
+            log('e', 'r', f'"{exception}", exception type: {type(exception)}', True, 'you cooked', 'e')
         return exception
 
-# Arguments and flags
-args_token = ''         # -t or --token
-args_colored = False    # -c or --colored
-args_notify = False     # -n or --notifications
+# arguments
+# init argument parser
+arg_parser = argparse.ArgumentParser(
+    prog='bot.py',
+    description='Bot for parsing and viewing Kitis groups schedule in telegram bot'
+)
 
-# list of all existing flags
-args_list = {'-h', '--help', '-t', '--token', '-c', '--colored'}
+# add arguments to parser
+arg_parser.add_argument('-c', '--colored', action='store_true', help='enable colored output in logs')
+arg_parser.add_argument('-t', '--token', help='token of your telegram bot')
+arg_parser.add_argument('-n', '--notifications', help='get error notifications to https://ntfy.sh/[NTFY_TOPIC]', metavar='NTFY_TOPIC')
 
-sys.argv.remove(sys.argv[0]) # Removing filename from arguments list
+# parse arguments and do somenthing with them
+args = arg_parser.parse_args()
 
-# help flag
-if '-h' in sys.argv or '--help' in sys.argv:
-    print('-h or --help\t\t- show usage help\n-c or --colored\t\t- sets colored log output (cat)\n-t or --token\t\t- set bot token (following argument is token itself)\n-n or --notifications\t- get error notifications (following argument is ntfy.sh topic, eg. \'kitis_bot_notifications\' without quotes)')
-    exit(0)
-
-# token flag
-if '-t' in sys.argv:
-    try:
-        args_token = sys.argv[sys.argv.index('-t') + 1]
-        sys.argv.remove(sys.argv[sys.argv.index('-t') + 1])
-        sys.argv.remove('-t')
-    except Exception as e:
-        log('e', 'r', f'exception at \'-t in sys.argv\' // {e}')
-        exit(1)
-elif '--token' in sys.argv:
-    try:
-        args_token = sys.argv[sys.argv.index('--token') + 1]
-        sys.argv.remove(sys.argv[sys.argv.index('--token') + 1])
-        sys.argv.remove('--token')
-    except Exception as e:
-        log('e', 'r', f'exception at \'--token in sys.argv\' // {e}')
-        exit(1)
-
-# colored log flag
-if '-c' in sys.argv or '--colored' in sys.argv:
-    args_colored = True
-    if '-c' in sys.argv:
-        sys.argv.remove('-c')
-    elif '--colored' in sys.argv:
-        sys.argv.remove('--colored')
-
-# notifications flag
-if '-n' in sys.argv:
-    try:
-        args_notify = True
-        post_topic = sys.argv[sys.argv.index('-n') + 1]
-        sys.argv.remove(sys.argv[sys.argv.index('-n') + 1])
-        sys.argv.remove('-n')
-    except Exception as e:
-        log('e', 'r', f'exception at \'-n in sys.argv\' // {e}')
-        exit(1)
-elif '--notifications' in sys.argv:
-    try:
-        args_notify = True
-        post_topic = sys.argv[sys.argv.index('--notifications') + 1]
-        sys.argv.remove(sys.argv[sys.argv.index('--notifications') + 1])
-        sys.argv.remove('--notifications')
-    except Exception as e:
-        log('e', 'r', f'exception at \'--notifications in sys.argv\' // {e}')
-        exit(1)
-
-# check for unknown arguments
-if len(sys.argv) > 0 and not sys.argv[0] in args_list:
-    log('e', 'r', f'exception: unknown argument \'{sys.argv[0]}\'. aborting...')
-    exit(1)
+# use notifications if -n/--notifications argument provided
+use_ntfy = False
+if args.notifications:
+    use_ntfy = True
 
 # load .env file if present
 dotenv.load_dotenv()
 # get token from argument if present
-if args_token != '':
-    TOKEN = args_token
+if args.token:
+    TOKEN = args.token
 # get token from .env file if present
 elif os.getenv('TOKEN'):
     TOKEN = os.getenv('TOKEN')
 # no token given -> abort
 else:
-    log('e', 'r', 'error: no token given. aborting...')
+    log('e', 'r', 'no token given. aborting...')
     exit(1)
 # initialize bot
 try:
@@ -643,7 +596,7 @@ bot.polling(timeout=20, long_polling_timeout = 10)
 
 # Stopping bot (there is actually nothing to stop, just close database (useless because program will exit anyway))
 # get notification that bot stopped working for some reason
-if args_notify:
+if use_ntfy:
     post_ntfy('w', 'stopped', 'bot stopped working.\ncheck log.log for more information.', 'h')
 
 log('o', 'w', 'bot stopped working')
