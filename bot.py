@@ -1,4 +1,4 @@
-import requests, os, time, sys, logging, dotenv, argparse
+import requests, os, time, sys, logging, dotenv, argparse, toml
 import telebot as tb
 from bs4 import BeautifulSoup
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -141,6 +141,7 @@ arg_parser = argparse.ArgumentParser(
 arg_parser.add_argument('-c', '--colored', action='store_true', help='enable colored output in logs')
 arg_parser.add_argument('-t', '--token', help='token of your telegram bot')
 arg_parser.add_argument('-n', '--notifications', help='get error notifications to https://ntfy.sh/[NTFY_TOPIC]', metavar='NTFY_TOPIC')
+arg_parser.add_argument('-f', '--config', help='path to config file')
 
 # parse arguments and do somenthing with them
 args = arg_parser.parse_args()
@@ -149,6 +150,32 @@ args = arg_parser.parse_args()
 use_ntfy = False
 if args.notifications:
     use_ntfy = True
+
+# load config
+# use config provided via args
+if args.config:
+    cfg = toml.load(args.config)
+# use default config file
+elif os.path.exists('config.toml'):
+    cfg = toml.load('config.toml')
+# create new config file
+else:
+    log('w', 'o', 'config.toml not found! creating new config file and using it for now')
+    conf_default = {
+        "groups": {
+            "url_main":     "http://94.72.18.202:8083/cg.htm",
+            "url_start":    "http://94.72.18.202:8083/"
+        },
+        "lists": {
+            "admins": []
+        },
+        "ping": {
+            "url": "http://94.72.18.202:8083/index.htm"
+        }
+    }
+    with open('config.toml', 'w', encoding='utf-8') as file:
+        toml.dump(conf_default, file)
+    cfg = toml.load('config.toml')
 
 # load .env file if present
 dotenv.load_dotenv()
@@ -504,15 +531,7 @@ def bot_ping(message):
         # website is down
         bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Не отвечает!</b>\n<u>Адрес</u>: <i>http://94.72.18.202:8083/index.htm</i>\n<u>IP</u>: <i>94.72.18.202</i>\n<u>Порт</u>: <i>8083</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
 
-# ADMIN / DEBUG COMMANDS - ONLY WORKS IF SENDER IS IN ADMIN LIST
-# read admin list from file
-admin_list = []
-if os.path.exists('admin.list'):
-    with open('admin.list', 'r', encoding='utf-8') as file:
-        admin_list = file.read().splitlines()
-# admin.list not found
-else:
-    log('w', 'o', "admin.list not found! you will be unable to use admin commands.")
+# ADMIN / DEBUG COMMANDS - ONLY WORKS IF SENDER IS IN ADMIN LIST (cfg -> lists -> admins)
 
 # announcement command
 command_announ = "announcement"
@@ -527,7 +546,7 @@ command_announ = "announcement"
 @bot.message_handler(commands=[f'{command_announ}'])
 def announcement(message, file_id = ''):
     # check if in admin list
-    if (str(message.chat.id) not in admin_list):
+    if (str(message.chat.id) not in cfg["lists"]["admins"]):
         return
     
     # get text of message
