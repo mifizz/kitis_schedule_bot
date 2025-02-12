@@ -9,8 +9,10 @@ Firstly, you need to clone this repo to your PC or download source code (Code ->
 ### Creating telegram bot
 Next you need to create a new bot in telegram with [Bot Father](https://t.me/BotFather). After you created bot you need to set it up. Type **/mybots** command in Bot Father and choose bot you created. There you need to select Edit Bot -> Edit Commands and paste this (you may change descriptions for commands how you want):
 ```
-schedule - THIS IS COMMAND FOR REQUESTING SCHEDULE
-group - THIS IS COMMAND FOR CHOOSING YOUR GROUP
+schedule - THIS COMMAND IS FOR REQUESTING SCHEDULE
+scheduleother - THIS COMMAND IS FOR REQUESTING SOMEONE OTHERS SCHEDULE WITHOUT CHANGING YOUR GROUP
+group - THIS COMMAND IS FOR CHOOSING YOUR GROUP
+ping - THIS COMMAND IS FOR CHECKING BOT AND SCHEDULE WEBSITE STATUS
 ```
 You may also want to change your bot name, description, etc. You can do all this with Bot Father
 
@@ -19,13 +21,12 @@ After you set up your new bot you need to get your bot token. To do this you nee
 ### Launching bot
 Before you can launch bot you need to install dependencies. They are listed in [dependencies](#dependencies) section
 
-Create *admin.list* file and then write all admin telegram user IDs separating it with new lines, eg.:
+Create *admin.list* file **[optional]** and then write all admin telegram user IDs separating it with new lines, eg.:
 ```
 1234567890
 111222333
 0987654321
 ```
-If you don't want to add any admin just type -1 instead of user id.
 
 Finally, you can launch your bot using API token. You currently have 2 options of doing this:
 1. Create *.env* file in the same directory as all *.py* files located. Here you need to paste this string and change **YOUR TOKEN HERE** to your bot token (token MUST be in quotes):
@@ -67,6 +68,37 @@ For this bot to work, you need to install some libraries with **pip** (just past
 pip install requests pyTelegramBotAPI python-dotenv beautifulsoup4
 ```
 
+## Admin commands
+There will be commands that you can use directly in telegram bot chat, mainly debug commands.
+You should create *admin.list* file for this commands to work.
+
+#### **/announcement** - allows you to send news or announcements or whatever you want to certain bot users
+
+Usage:
+```
+/announcement
+[announcement text without these brackets]
+\ANN_END
+[send mode - INCLUDE / EXCLUDE]
+\MODE_END
+[user_id of included / excluded user]
+[another user_id]
+[etc]
+```
+Example:
+```
+/announcement
+We are finally updating our bot!
+Changelog:
+- ...
+\ANN_END
+INCLUDE
+\MODE_END
+123456789
+987654321
+```
+This example sends message **ONLY** to these users: **123456789**, **987654321**
+
 # Бот расписания КИТиС (ru)
 Смотрите расписание для любой группы КИТиС в телеграм боте. Этот бот использует базу данных пользователей, поэтому Вы можете один раз выбрать свою группу с помощью команды **/group**. Второй раз выбирать группу не нужно, так что Вы когда угодно можете использовать команду **/schedule**, чтобы посмотреть расписание для выбранной Вами группы (кроме случаев, когда сайт с расписанием не работает).
 
@@ -77,7 +109,9 @@ pip install requests pyTelegramBotAPI python-dotenv beautifulsoup4
 Дальше Вам нужно создать нового телеграм бота с помощью [Bot Father](https://t.me/BotFather). После того, как Вы создали бота, Вам нужно его настроить. Введите команду **/mybots** в Bot Father и выберите бота, которого Вы только что создали. Здесь Вам нужно выбрать Edit Bot -> Edit Commands и вставить следующий текст (Вы можете изменить описание команд как Вам хочется):
 ```
 schedule - ЭТО КОМАНДА ДЛЯ ПОЛУЧЕНИЯ РАСПИСАНИЯ
+scheduleother - ЭТО КОМАНДА ДЛЯ ПОЛУЧЕНИЯ ЧЬЕГО-ТО РАСПИСАНИЯ БЕЗ ИЗМЕНЕНИЯ СВОЕЙ ГРУППЫ
 group - ЭТО КОМАНДА ДЛЯ ВЫБОРА ГРУППЫ
+ping - ЭТО КОМАНДА ДЛЯ ПРОВЕРКИ СОСТОЯНИЯ БОТА И САЙТА С РАСПИСАНИЕМ
 ```
 Также Вы можете поменять название, описание бота и т.д. Всё это Вы можете сделать с помощью Bot Father.
 
@@ -86,13 +120,12 @@ group - ЭТО КОМАНДА ДЛЯ ВЫБОРА ГРУППЫ
 ### Запуск бота
 Перед тем, как запустить бота, Вам нужно установить зависимости. Они указаны в разделе [Зависимости](#зависимости).
 
-Создайте файл *admin.list* и запишите туда все user id телеграма админов, разделяя их новыми строками, например:
+Создайте файл *admin.list* **[необязательно]** и запишите туда все user id телеграма админов, разделяя их новыми строками, например:
 ```
 1234567890
 111222333
 0987654321
 ```
-Если Вы не хотите добавлять админов, просто напишите -1 вместо user id.
 
 Наконец, Вы можете запустить бота используя API токен. На данный момент есть 2 способа сделать это:
 1. Создайте файл *.env* в той же директории, где находятся все *.py* файлы. В этом файле вам нужно вставить эту строчку, поменяв **ВАШ ТОКЕН** на Ваш токен бота (токен ДОЛЖЕН быть в кавычках):
@@ -133,3 +166,34 @@ python bot.py -n kitis_bot_notifications
 ```
 pip install requests pyTelegramBotAPI python-dotenv beautifulsoup4
 ```
+
+## Комманды админа
+Здесь будут команды, которые вы сможете использовать прямо в чате с ботом, в основном для отладки.
+Вы должны создать файл *admin.list*, чтобы эти команды работали.
+
+#### **/announcement** - позволяет рассылать новости или объявления или что Вы хотите определенным пользователям бота.
+
+Использование:
+```
+/announcement
+[текст объявления должен быть без этих скобок]
+\ANN_END
+[режим отправки - INCLUDE / EXCLUDE]
+\MODE_END
+[user_id добавленного / исключенного юзера]
+[другой user_id]
+[и т.д.]
+```
+Пример:
+```
+/announcement
+Мы наконец-то обновляем нашего бота!
+Список изменений:
+- ...
+\ANN_END
+INCLUDE
+\MODE_END
+123456789
+987654321
+```
+Этот пример отсылает сообщение **ТОЛЬКО** этим пользователям: **123456789**, **987654321**

@@ -10,14 +10,15 @@ logging.basicConfig(filename='log.log',
                     format='%(message)s', 
                     level=logging.INFO)
 
-def log(tag='u', color='b', text='undefined', will_notify=False, post_title='untitled', post_tag='i'):
+def log(tag='u', color='w', text='undefined', will_notify=False, post_title='untitled', post_tag='i'):
     # writing in log and printing in console
     colors = {
         'r':'\033[31m', # red
         'g':'\033[32m', # green
         'y':'\033[33m', # yellow
         'b':'\033[36m', # blue
-        'w':'\033[90m'  # gray
+        'w':'\033[90m', # gray
+        'o':'\033[93m'  # orange
     }
     tags = {
         't':'start', # start tag
@@ -25,7 +26,8 @@ def log(tag='u', color='b', text='undefined', will_notify=False, post_title='unt
         's':'sched', # schedule tag
         'p':'ping?', # ping tag
         'a':'anncm', # announcement tag
-        'e':'error', # important error tag
+        'e':'error', # error tag
+        'w':'warng', # warning tag
         'o':'other', # tag for other information
         'u':'undef'  # undefined tag
     }
@@ -255,7 +257,6 @@ url_dict = {
 }
 groups_count = len(url_dict)
 
-cq_action = 'none' # action id for callback query
 cur_bot_message = tb.types.Message # last message bot sent (for editing or deleting message)
 
 # get full link for schedule request
@@ -401,7 +402,7 @@ def schedule(message):
 # One time schedule command (scheduleother)
 @bot.message_handler(commands=['scheduleother'])
 def scheduleother(message):
-    global cq_action, cur_bot_message
+    global cur_bot_message
     
     log('s', 'b', f'schedule request (one-time) // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
     # check if using commands too fast (spamming)
@@ -411,21 +412,22 @@ def scheduleother(message):
         return
     cur_bot_message = bot.send_message(message.chat.id, 'Выберите группу (группа не сохраняется):', reply_markup=kb_markup)
     db.update_value(message.chat.id, 'last_schedule_request_time', time.time())
-    cq_action = 'sched_other'
 
 # Group pickup command
 @bot.message_handler(commands=['group'])
 def group_pickup(message):
-    global cq_action
-
     log('g', 'b', f'group pickup request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
     bot.send_message(message.chat.id, 'Выберите группу:', reply_markup=kb_markup)
-    cq_action = 'group_pickup'
 
 # Callback query handler (buttons in bot messages)
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
-    global cq_action
+    cq_action = ''
+    if 'группа не сохраняется' in call.message.text:
+        cq_action = 'sched_other'
+    elif 'Выберите группу:' in call.message.text:
+        cq_action = 'group_pickup'
+    
     # Group pickup request
     if cq_action == 'group_pickup':
         # check if using commands too fast (spamming)
@@ -446,7 +448,6 @@ def callback_query(call):
         # why the fuck it did not set a group :sob:
         else:
             log('g', 'r', f'what the actual fuck happened (group is not set after trying to set it) // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_value(call.message.chat.id, 'id')}')
-        cq_action = 'group_pickup'
     
     # Schedule request (one-time)
     elif cq_action == 'sched_other':
@@ -462,14 +463,12 @@ def callback_query(call):
             result = get_schedule(get_url(temp_group), temp_group)
             bot.edit_message_text(result, call.message.chat.id, request_notification.id, parse_mode='HTML')
             log('s', 'g', f'sent schedule (one-time), group {temp_group} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_value(call.message.chat.id, 'id')}')
-            cq_action = 'group_pickup'
         except Exception as e:
             bot.edit_message_text('Не удалось получить расписание! Попробуйте позже...', call.message.chat.id, request_notification.id)
-            cq_action = 'group_pickup'
             raise
     
     # Callback query is empty wtf
-    elif cq_action == 'none':
+    elif cq_action == '':
         bot.answer_callback_query(call.id)
         bot.send_message(call.message.chat.id, 'Не могу выполнить запрос!')
         log('u', 'y', f'empty callback query action // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_value(call.message.chat.id, 'id')}')
@@ -511,10 +510,9 @@ admin_list = []
 if os.path.exists('admin.list'):
     with open('admin.list', 'r', encoding='utf-8') as file:
         admin_list = file.read().splitlines()
-# admin.list file doesn't exist
+# admin.list not found
 else:
-    log('e', 'r', "you must create 'admin.list' file first with at least 1 telegram user id (admin user id)!\nwrite -1 in that file if you don't want to add any admin.")
-    exit(1)
+    log('w', 'o', "admin.list not found! you will be unable to use admin commands.")
 
 # announcement command
 command_announ = "announcement"
@@ -527,7 +525,7 @@ command_announ = "announcement"
 # 1234567890
 
 @bot.message_handler(commands=[f'{command_announ}'])
-def bot_ping(message, file_id = ''):
+def announcement(message, file_id = ''):
     # check if in admin list
     if (str(message.chat.id) not in admin_list):
         return
