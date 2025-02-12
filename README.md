@@ -65,7 +65,7 @@ Full ntfy.sh URL for this example will be **https://ntfy.sh/kitis_bot_notificati
 ## Dependencies
 For this bot to work, you need to install some libraries with **pip** (just paste this command and press Enter).
 ```
-pip install requests pyTelegramBotAPI python-dotenv beautifulsoup4
+pip install requests pyTelegramBotAPI python-dotenv beautifulsoup4 toml
 ```
 
 ## Admin commands
@@ -164,7 +164,7 @@ python bot.py -n kitis_bot_notifications
 ## Зависимости
 Чтобы бот работал, Вам нужно установить следующие библиотеки с помощью **pip** (просто вставьте следующую команду и нажмите Enter):
 ```
-pip install requests pyTelegramBotAPI python-dotenv beautifulsoup4
+pip install requests pyTelegramBotAPI python-dotenv beautifulsoup4 toml
 ```
 
 ## Комманды админа
