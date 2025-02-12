@@ -21,13 +21,6 @@ After you set up your new bot you need to get your bot token. To do this you nee
 ### Launching bot
 Before you can launch bot you need to install dependencies. They are listed in [dependencies](#dependencies) section
 
-Create *admin.list* file **[optional]** and then write all admin telegram user IDs separating it with new lines, eg.:
-```
-1234567890
-111222333
-0987654321
-```
-
 Finally, you can launch your bot using API token. You currently have 2 options of doing this:
 1. Create *.env* file in the same directory as all *.py* files located. Here you need to paste this string and change **YOUR TOKEN HERE** to your bot token (token MUST be in quotes):
 ```
@@ -70,7 +63,7 @@ pip install requests pyTelegramBotAPI python-dotenv beautifulsoup4 toml
 
 ## Admin commands
 There will be commands that you can use directly in telegram bot chat, mainly debug commands.
-You should create *admin.list* file for this commands to work.
+You should edit *config.toml* file and add admins user_id's in `admins = []` for this commands to work. (example: `admins = [ "123456789", "987654321" ]`)
 
 #### **/announcement** - allows you to send news or announcements or whatever you want to certain bot users
 
@@ -120,13 +113,6 @@ ping - ЭТО КОМАНДА ДЛЯ ПРОВЕРКИ СОСТОЯНИЯ БОТА
 ### Запуск бота
 Перед тем, как запустить бота, Вам нужно установить зависимости. Они указаны в разделе [Зависимости](#зависимости).
 
-Создайте файл *admin.list* **[необязательно]** и запишите туда все user id телеграма админов, разделяя их новыми строками, например:
-```
-1234567890
-111222333
-0987654321
-```
-
 Наконец, Вы можете запустить бота используя API токен. На данный момент есть 2 способа сделать это:
 1. Создайте файл *.env* в той же директории, где находятся все *.py* файлы. В этом файле вам нужно вставить эту строчку, поменяв **ВАШ ТОКЕН** на Ваш токен бота (токен ДОЛЖЕН быть в кавычках):
 ```
@@ -169,7 +155,7 @@ pip install requests pyTelegramBotAPI python-dotenv beautifulsoup4 toml
 
 ## Комманды админа
 Здесь будут команды, которые вы сможете использовать прямо в чате с ботом, в основном для отладки.
-Вы должны создать файл *admin.list*, чтобы эти команды работали.
+Вы должны отредактировать файл *config.toml* и добавить user_id админов в список `admins = []`, чтобы эти команды работали. (например `admins = [ "123456789", "987654321" ]`)
 
 #### **/announcement** - позволяет рассылать новости или объявления или что Вы хотите определенным пользователям бота.
 
