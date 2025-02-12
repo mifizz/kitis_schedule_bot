@@ -1,7 +1,8 @@
+__pycache__
+venv
+.vscode
+.env
 db.db
 log.log
-__pycache__
-.env
-.vscode
-admin.list
-black.list
+config.toml
+groups.toml
