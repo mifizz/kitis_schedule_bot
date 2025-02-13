@@ -329,24 +329,32 @@ kb_markup = gm_groups()
 def is_spam(prev_use_time: float, cooldown: float):
     return (time.time() - prev_use_time) < cooldown
 
+# check user
+def checkUser(uid : str, uname : str):
+    # check if user already exists
+    if db.user_exists(uid):
+        if db.get_value(uid, 'username') != uname:
+            db.update_value(uid, 'username', uname)
+            log('o', 'w', f'updated {uid} username: {uname}')
+    # otherwise add new user to database
+    else:
+        db.add_user(uid, uname)
+        log('o', 'y', f'added {uid} ({uname}) to database')
+
 # Start message command
 @bot.message_handler(commands=['start'])
 def start(message):
     log('t', 'b', f'start received // sender id: {message.chat.id}, username: {message.chat.username}')
     bot.send_message(message.chat.id, 'Привет, это бот для просмотра расписания КИТиС!\nДля начала выбери свою группу с помощью команды /group, а после этого используй команду /schedule, чтобы посмотреть расписание выбранной группы!')
-
-    # check if user exists
-    if db.user_exists(message.chat.id):
-        log('t', 'g', f'user exists // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
-    # add user to database if there is not
-    else:
-        log('t', 'y', f'user is not in database // id: {message.chat.id}, username: {message.chat.username}')
-        db.add_user(message.chat.id, message.chat.username)
-        log('t', 'g', f'added user to database // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
+    # check user
+    checkUser(message.chat.id, message.chat.username)
 
 # Schedule command
 @bot.message_handler(commands=['schedule'])
 def schedule(message):
+    # check user
+    checkUser(message.chat.id, message.chat.username)
+
     log('s', 'b', f'schedule request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
     
     # check if group is set
@@ -377,7 +385,9 @@ def schedule(message):
 @bot.message_handler(commands=['scheduleother'])
 def scheduleother(message):
     global cur_bot_message
-    
+    # check user
+    checkUser(message.chat.id, message.chat.username)
+
     log('s', 'b', f'schedule request (one-time) // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
     # check if using commands too fast (spamming)
     if is_spam(db.get_value(message.chat.id, 'last_schedule_request_time'), 5):
@@ -390,6 +400,9 @@ def scheduleother(message):
 # Group pickup command
 @bot.message_handler(commands=['group'])
 def group_pickup(message):
+    # check user
+    checkUser(message.chat.id, message.chat.username)
+
     log('g', 'b', f'group pickup request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
     bot.send_message(message.chat.id, 'Выберите группу:', reply_markup=kb_markup)
 
@@ -453,6 +466,9 @@ def callback_query(call):
 # ping command
 @bot.message_handler(commands=['ping'])
 def bot_ping(message):
+    # check user
+    checkUser(message.chat.id, message.chat.username)
+
     log('p', 'b', f'ping request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
     # check for spam
     if is_spam(db.get_value(message.chat.id, 'last_ping_request_time'), 5):
