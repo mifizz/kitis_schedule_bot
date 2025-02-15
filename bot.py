@@ -1,4 +1,4 @@
-import requests, os, time, sys, logging, dotenv, argparse, toml, subprocess
+import requests, os, datetime, time, sys, logging, dotenv, argparse, toml, subprocess
 import telebot as tb
 from bs4 import BeautifulSoup
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -25,6 +25,7 @@ def log(tag='u', color='w', text='undefined', will_notify=False, post_title='unt
         'g':'group', # group tag
         's':'sched', # schedule tag
         'p':'ping?', # ping tag
+        'd':'updtm', # update time tag
         'a':'anncm', # announcement tag
         'e':'error', # error tag
         'w':'warng', # warning tag
@@ -493,6 +494,40 @@ def bot_ping(message):
             log('p', 'r', f'exception at bot_ping() // {exception}')
         # website is down
         bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Не отвечает!</b>\n<u>Адрес</u>: <i>{cfg["ping"]["url"]}</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
+
+@bot.message_handler(commands=['updatetime'])
+def updatetime(message):
+    # check user
+    checkUser(message.chat.id, message.chat.username)
+    log('d', 'b', f'update time - {message.chat.id} ({message.chat.username})')
+    # abort if user group is not set (will be changed in future maybe)
+    if not db.user_has_group(message.chat.id):
+        bot.send_message(message.chat.id, 'Сначала выберите группу! - /group')
+        return
+    else:
+        mes = bot.send_message(message.chat.id, 'Общее обновление: <i>ожидайте...</i>\nОбновление группы: <i>ожидайте...</i>', parse_mode='HTML')
+    
+    try:
+        # get group schedule page html
+        response = requests.get(get_url(db.get_value(message.chat.id, 'user_group')), timeout=5)
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # general schedule update time
+        updatetime_general = '<i>' + soup.find('div', class_='ref').text.strip().removeprefix('Обновлено: ').removesuffix('.') + '</i>'
+        text = 'Общее обновление: ' + updatetime_general + '\n'
+        
+        # group schedule update time
+        updatetime_group = response.headers.get('Last-Modified')
+        updatetime_group_dt = datetime.datetime.strptime(updatetime_group, '%a, %d %b %Y %H:%M:%S GMT')
+        updatetime_group_dt += datetime.timedelta(hours=2)
+        text += 'Обновление группы: <i>' + updatetime_group_dt.strftime('%d.%m.%Y в %H:%M') + '</i>'
+        
+        bot.edit_message_text(text, message.chat.id, mes.id, parse_mode='HTML')
+        log('d', 'g', f'success - {message.chat.id}')
+    except Exception as e:
+        log('d', 'r', f'{e} - {message.chat.id}')
+        bot.edit_message_text('Не удалось получить информацию с сайта!', message.chat.id, mes.id)
+        return
 
 # ADMIN / DEBUG COMMANDS - ONLY WORKS IF SENDER IS IN ADMIN LIST (cfg -> lists -> admins)
 
