@@ -555,12 +555,26 @@ def announcement(message, file_id = ''):
     else:
         ann_mes = str(message.text)
     # check receiving mode ( INCLUDE / EXCLUDE )
+    if '\\ANN_END\n' not in ann_mes:
+        log('a', 'r', '\'\\ANN_END\\n\' not specified!')
+        return
+    elif '\\MODE_END\n' not in ann_mes:
+        log('a', 'r', '\'\\MODE_END\\n\' not specified!')
+        return
+
+    # get sending mode
     ann_mode = ann_mes.split("\\ANN_END\n")[1].splitlines()[0]
+    if ann_mode != "INCLUDE" and ann_mode != "EXCLUDE":
+        log('a', 'r', 'invalid mode! must be INCLUDE or EXCLUDE')
+        return
     # get IDs of announcement receivers
     ann_ids = ann_mes.split("\\MODE_END\n")[1].splitlines()
     temp_ann_ids = ann_ids
     # get actual message
     ann_mes = ann_mes.removeprefix(f"/{command_announ}\n").split("\\ANN_END")[0].removesuffix("\\ANN_END").strip()
+    if ann_mes == "":
+        log('a', 'r', 'no announcement text found!')
+        return
 
     # update ann_ids list to all known IDs without excluded IDs
     if ann_mode == "EXCLUDE":
@@ -603,7 +617,7 @@ def announcement(message, file_id = ''):
 def photo_handler(message):
     # announcement with image
     if message.caption and f'/{command_announ}' in message.caption:
-        bot_ping(message, message.photo[-1].file_id)
+        announcement(message, message.photo[-1].file_id)
 
 log('o', 'w', 'bot launched')
 # Launching bot polling
