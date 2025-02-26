@@ -82,7 +82,7 @@ def post_ntfy(tag='i', title='untitled', text='none', priority='l'):
     # print(post_req.status_code)
     if post_req.status_code != 200:
         use_ntfy = False
-        log('e', 'r', f'exception at post_ntfy() // can\'t access \'ntfy.sh/{args.notifications}\' (status code: {post_req.status_code}). Notifications are now disabled.')
+        log('e', 'r', f'post_ntfy(): can\'t access \'ntfy.sh/{args.notifications}\' (status code: {post_req.status_code}). Notifications are now disabled.')
 
 # Exception handler
 class BotExceptionHandler(tb.ExceptionHandler):
@@ -116,7 +116,7 @@ class BotExceptionHandler(tb.ExceptionHandler):
                 # removing useless text
                 e = str(exception).split('ConnectionPool(')[1].split('): Read')[0]          # host='...', port=...
                 timeout = str(exception).split('read timeout=')[1].removesuffix(')')        # set timeout in seconds
-                log('e', 'r', f'read timed out ({timeout}) // {e}', True, f'read timed out ({timeout}) // {e}')
+                log('e', 'r', f'read timed out ({timeout}): {e}', True, f'read timed out ({timeout}) // {e}')
                 self.last_readtimeout_time = time.time()
             else:
                 log('e', 'w', 'read timed out again')
@@ -311,7 +311,7 @@ def get_schedule(url, group):
         updatetime_group_dt += datetime.timedelta(hours=2)
         result += '\n--------------------------\n<i>Последнее обновление: ' + updatetime_group_dt.strftime('%d.%m.%Y в %H:%M:%S') + '</i>'
     else:
-        log('s', 'r', f'error: failed to fetch website! // status code: {response.status_code}') # i might just delete this whole if-else section and replace it with some good readable code 8) 
+        log('s', 'r', f'failed to fetch website! status code: {response.status_code}') # i might just delete this whole if-else section and replace it with some good readable code 8) 
         raise
     return result
 
@@ -348,7 +348,7 @@ def checkUser(uid : str, uname : str):
 # Start message command
 @bot.message_handler(commands=['start'])
 def start(message):
-    log('t', 'b', f'start received // sender id: {message.chat.id}, username: {message.chat.username}')
+    log('t', 'b', f'request from {message.chat.id} ({message.chat.username})')
     bot.send_message(message.chat.id, 'Привет, это бот для просмотра расписания КИТиС!\nДля начала выбери свою группу с помощью команды /group, а после этого используй команду /schedule, чтобы посмотреть расписание выбранной группы!')
     # check user
     checkUser(message.chat.id, message.chat.username)
@@ -359,16 +359,16 @@ def schedule(message):
     # check user
     checkUser(message.chat.id, message.chat.username)
 
-    log('s', 'b', f'schedule request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
+    log('s', 'b', f'request from {message.chat.id} ({message.chat.username}, {db.get_value(message.chat.id, 'id')})')
     
     # check if group is set
     if not db.get_value(message.chat.id, 'user_group'):
-        log('s', 'y', f'request rejected: group is empty! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
+        log('s', 'y', f'request failed: {message.chat.id} group is empty! ({message.chat.username}, {db.get_value(message.chat.id, 'id')})')
         bot.send_message(message.chat.id, 'Сначала выберите группу! - /group')
         return
     # check if using commands too fast (spamming)
     if is_spam(db.get_value(message.chat.id, 'last_schedule_request_time'), 5):
-        log('s', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
+        log('s', 'y', f'request failed: too many requests from {message.chat.id}! ({message.chat.username}, {db.get_value(message.chat.id, 'id')})')
         bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
         return
     
@@ -380,7 +380,7 @@ def schedule(message):
         result = get_schedule(get_url(group), group)
         bot.edit_message_text(result, message.chat.id, request_notification.id, parse_mode='HTML')
         db.update_value(message.chat.id, 'last_schedule_request_time', time.time())
-        log('s', 'g', f'sent schedule // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
+        log('s', 'g', f'sent schedule to {message.chat.id} ({message.chat.username}, {db.get_value(message.chat.id, 'id')})')
     except Exception as e:
         bot.edit_message_text('Не удалось получить расписание! Попробуйте позже...', message.chat.id, request_notification.id)
         raise
@@ -392,10 +392,10 @@ def scheduleother(message):
     # check user
     checkUser(message.chat.id, message.chat.username)
 
-    log('s', 'b', f'schedule request (one-time) // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
+    log('s', 'b', f'request from {message.chat.id} ({message.chat.username}, {db.get_value(message.chat.id, 'id')})')
     # check if using commands too fast (spamming)
     if is_spam(db.get_value(message.chat.id, 'last_schedule_request_time'), 5):
-        log('s', 'y', f'request rejected (one-time): too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
+        log('s', 'y', f'request failed: too many requests from {message.chat.id}! ({message.chat.username}, {db.get_value(message.chat.id, 'id')})')
         bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
         return
     cur_bot_message = bot.send_message(message.chat.id, 'Выберите группу (группа не сохраняется):', reply_markup=kb_markup)
@@ -407,7 +407,7 @@ def group_pickup(message):
     # check user
     checkUser(message.chat.id, message.chat.username)
 
-    log('g', 'b', f'group pickup request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
+    log('g', 'b', f'request from {message.chat.id} ({message.chat.username}, {db.get_value(message.chat.id, 'id')})')
     bot.send_message(message.chat.id, 'Выберите группу:', reply_markup=kb_markup)
 
 # Callback query handler (buttons in bot messages)
@@ -423,7 +423,7 @@ def callback_query(call):
     if cq_action == 'group_pickup':
         # check if using commands too fast (spamming)
         if is_spam(db.get_value(call.message.chat.id, 'last_group_request_time'), 3):
-            log('g', 'y', f'request rejected: too many requests in 3 seconds! // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_value(call.message.chat.id, 'id')}')
+            log('g', 'y', f'request failed: too many requests from {call.message.chat.id}! ({call.message.chat.username}, {db.get_value(call.message.chat.id, 'id')})')
             bot.send_message(call.message.chat.id, 'Вы слишком часто меняете группу! Подождите немного...')
             # Closing callback query (Unfreezing buttons)
             bot.answer_callback_query(call.id)
@@ -435,10 +435,10 @@ def callback_query(call):
         bot.answer_callback_query(call.id)
         # check if user has group
         if db.user_has_group(call.message.chat.id):
-            log('g', 'g', f'picked group {db.get_value(call.message.chat.id, 'user_group')} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_value(call.message.chat.id, 'id')}')
+            log('g', 'g', f'set {db.get_value(call.message.chat.id, 'user_group')} group for {call.message.chat.id} ({call.message.chat.username}, {db.get_value(call.message.chat.id, 'id')})')
         # why the fuck it did not set a group :sob:
         else:
-            log('g', 'r', f'what the actual fuck happened (group is not set after trying to set it) // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_value(call.message.chat.id, 'id')}')
+            log('g', 'r', f'what the actual fuck happened (group for {call.message.chat.id} is not set after trying to set it) ({call.message.chat.username}, {db.get_value(call.message.chat.id, 'id')})')
     
     # Schedule request (one-time)
     elif cq_action == 'sched_other':
@@ -453,7 +453,7 @@ def callback_query(call):
         try:
             result = get_schedule(get_url(temp_group), temp_group)
             bot.edit_message_text(result, call.message.chat.id, request_notification.id, parse_mode='HTML')
-            log('s', 'g', f'sent schedule (one-time), group {temp_group} // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_value(call.message.chat.id, 'id')}')
+            log('s', 'g', f'sent {temp_group} schedule to {call.message.chat.id} ({call.message.chat.username}, {db.get_value(call.message.chat.id, 'id')})')
         except Exception as e:
             bot.edit_message_text('Не удалось получить расписание! Попробуйте позже...', call.message.chat.id, request_notification.id)
             raise
@@ -462,10 +462,10 @@ def callback_query(call):
     elif cq_action == '':
         bot.answer_callback_query(call.id)
         bot.send_message(call.message.chat.id, 'Не могу выполнить запрос!')
-        log('u', 'y', f'empty callback query action // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_value(call.message.chat.id, 'id')}')
+        log('u', 'y', f'empty callback query action from {call.message.chat.id} ({call.message.chat.username}, {db.get_value(call.message.chat.id, 'id')})')
     # Unknown callback query action (you are cooked up)
     else:
-        log('u', 'y', f'unknown callback query action // id: {call.message.chat.id}, username: {call.message.chat.username}, db_id: {db.get_value(call.message.chat.id, 'id')}')
+        log('u', 'y', f'unknown callback query action from {call.message.chat.id} ({call.message.chat.username}, {db.get_value(call.message.chat.id, 'id')})')
 
 # ping command
 @bot.message_handler(commands=['ping'])
@@ -473,10 +473,10 @@ def bot_ping(message):
     # check user
     checkUser(message.chat.id, message.chat.username)
 
-    log('p', 'b', f'ping request // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
+    log('p', 'b', f'request from {message.chat.id} ({message.chat.username}, {db.get_value(message.chat.id, 'id')})')
     # check for spam
     if is_spam(db.get_value(message.chat.id, 'last_ping_request_time'), 5):
-        log('p', 'y', f'request rejected: too many requests in 5 seconds! // id: {message.chat.id}, username: {message.chat.username}, db_id: {db.get_value(message.chat.id, 'id')}')
+        log('p', 'y', f'request failed: too many requests from {message.chat.id}! ({message.chat.username}, {db.get_value(message.chat.id, 'id')})')
         bot.send_message(message.chat.id, 'Вы слишком часто используете команду <b>ping</b>!', parse_mode='HTML')
         return
     cur_bot_message = bot.send_message(message.chat.id, f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Ожидание ответа...</b>\n<u>Адрес</u>: <i>{cfg["ping"]["url"]}</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', parse_mode='HTML')
@@ -486,15 +486,15 @@ def bot_ping(message):
         response = requests.get(f'{cfg["ping"]["url"]}', timeout=5)
         # website is working
         bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Работает!</b>\n<u>Адрес</u>: <i>{cfg["ping"]["url"]}</i>\n<u>Код статуса</u>: <i>{response.status_code}</i>\n<u>Время отклика</u>: <i>{round(response.elapsed.microseconds / 1000) / 1000} сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
-        log('p', 'g', f'successfully pinged website! // status code: {response.status_code}, elapsed time: {response.elapsed.microseconds / 1000} ms')
+        log('p', 'g', f'success: elapsed time - {response.elapsed.microseconds / 1000} ms')
     except Exception as exception:
         if type(exception) == requests.ConnectTimeout:
             # removing useless text
             e = str(exception).split('ConnectionPool(')[1].split('): Max retries')[0]       # host='...', port=...
             timeout = str(exception).split('connect timeout=')[1].removesuffix(')\'))')     # set timeout in seconds
-            log('p', 'r', f'connection timed out ({timeout}) // {e}')
+            log('p', 'r', f'connection timed out ({timeout}): {e}')
         else:
-            log('p', 'r', f'exception at bot_ping() // {exception}')
+            log('p', 'r', f'request failed: {exception}')
         # website is down
         bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Не отвечает!</b>\n<u>Адрес</u>: <i>{cfg["ping"]["url"]}</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
 
