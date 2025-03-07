@@ -234,8 +234,6 @@ else:
 url_dict = toml.load('groups.toml')["groups"]
 groups_count = len(url_dict)
 
-cur_bot_message = tb.types.Message # last message bot sent (for editing or deleting message)
-
 # get full link for schedule request
 def get_url(group):
     return cfg["groups"]["url_start"] + url_dict[group]
@@ -388,7 +386,6 @@ def schedule(message):
 # One time schedule command (scheduleother)
 @bot.message_handler(commands=['scheduleother'])
 def scheduleother(message):
-    global cur_bot_message
     # check user
     checkUser(message.chat.id, message.chat.username)
 
@@ -398,7 +395,7 @@ def scheduleother(message):
         log('s', 'y', f'request failed: too many requests from {message.chat.id}! ({message.chat.username}, {db.get_value(message.chat.id, 'id')})')
         bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
         return
-    cur_bot_message = bot.send_message(message.chat.id, 'Выберите группу (группа не сохраняется):', reply_markup=kb_markup)
+    bot.send_message(message.chat.id, 'Выберите группу (группа не сохраняется):', reply_markup=kb_markup)
     db.update_value(message.chat.id, 'last_schedule_request_time', time.time())
 
 # Group pickup command
@@ -446,7 +443,7 @@ def callback_query(call):
         # Closing callback query (Unfreezing buttons)
         bot.answer_callback_query(call.id)
 
-        bot.delete_message(call.message.chat.id, cur_bot_message.id)
+        bot.delete_message(call.message.chat.id, call.message.id)
         request_notification = bot.send_message(call.message.chat.id, 'Запрашиваю данные...\n\n<i>Если Вы видите этот текст больше 10 секунд, значит скорее всего что-то пошло не так...</i>', parse_mode='HTML')
 
         # try to get schedule
