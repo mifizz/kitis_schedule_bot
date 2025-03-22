@@ -2,87 +2,11 @@ import requests, os, datetime, time, sys, logging, dotenv, argparse, toml, subpr
 import telebot as tb
 from bs4 import BeautifulSoup
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from db import database # local class from db.py
 
-# Initializing logger
-logger = logging.getLogger(__name__)
-logging.basicConfig(filename='log.log',
-                    format='%(message)s', 
-                    level=logging.INFO)
-
-def log(tag='u', color='w', text='undefined', will_notify=False, post_title='untitled', post_tag='i'):
-    # writing in log and printing in console
-    colors = {
-        'r':'\033[31m', # red
-        'g':'\033[32m', # green
-        'y':'\033[33m', # yellow
-        'b':'\033[36m', # blue
-        'w':'\033[90m', # gray
-        'o':'\033[93m'  # orange
-    }
-    tags = {
-        't':'start', # start tag
-        'g':'group', # group tag
-        's':'sched', # schedule tag
-        'p':'ping?', # ping tag
-        'd':'updtm', # update time tag
-        'a':'anncm', # announcement tag
-        'e':'error', # error tag
-        'w':'warng', # warning tag
-        'o':'other', # tag for other information
-        'u':'undef'  # undefined tag
-    }
-
-    if args.colored:
-        output = '\033[90m' + time.asctime() + '\033[0m ' + colors[color] + '[' + tags[tag] + ']\033[0m > ' + text
-        print(output)
-    else:
-        output = '['+ tags[tag] + '] > ' + text
-        print(output)
-    logger.info(output)
-
-    # send notification if enabled
-    if args.notifications and will_notify:
-        match post_tag:
-            # info
-            case 'i':
-                post_ntfy('i', post_title, f'{text}', 'l')
-            # warning
-            case 'w':
-                post_ntfy('w', post_title, f'{text}', 'd')
-            # error
-            case 'e':
-                post_ntfy('e', post_title, f'{text}', 'h')
-
-logger.info('-----------------------------------------')
-
-# notifications via ntfy
-def post_ntfy(tag='i', title='untitled', text='none', priority='l'):
-    global use_ntfy
-    tags = {
-        'i':'speech_balloon',   # info tag
-        'w':'warning',          # warning tag
-        'e':'x'                 # error tag
-    }
-    priorities = {
-        'u':'urgent',           # highest priority
-        'h':'high',             # high priority
-        'd':'default',          # default priority
-        'l':'low',              # low priority
-        'm':'min'               # lowest priority
-    }
-
-    post_req = requests.post(f'https://ntfy.sh/{args.notifications}',
-        data=f'{text}',
-        headers={
-            'Title': f'{title}',
-            'Priority': f'{priorities[priority]}',
-            'Tags': f'{tags[tag]}'
-        })
-    # print(post_req.status_code)
-    if post_req.status_code != 200:
-        use_ntfy = False
-        log('e', 'r', f'post_ntfy(): can\'t access \'ntfy.sh/{args.notifications}\' (status code: {post_req.status_code}). Notifications are now disabled.')
+# local files
+from db import database
+import logger
+from logger import log
 
 # Exception handler
 class BotExceptionHandler(tb.ExceptionHandler):
@@ -147,10 +71,8 @@ arg_parser.add_argument('-f', '--config', help='path to config file')
 # parse arguments and do somenthing with them
 args = arg_parser.parse_args()
 
-# use notifications if -n/--notifications argument provided
-use_ntfy = False
-if args.notifications:
-    use_ntfy = True
+# init logger
+logger.init_logger("log.log", args.colored, args.notifications)
 
 # load config
 # use config provided via args
@@ -591,8 +513,6 @@ bot.polling(timeout=20, long_polling_timeout = 10)
 
 # Stopping bot (there is actually nothing to stop, just close database (useless because program will exit anyway))
 # get notification that bot stopped working for some reason
-if use_ntfy:
-    post_ntfy('w', 'stopped', 'bot stopped working.\ncheck log.log for more information.', 'h')
 
 log('o', 'w', 'bot stopped working')
 log('o', 'w', 'closing database...')
