@@ -25,18 +25,29 @@ arg_parser.add_argument('-n', '--notifications', help='get error notifications t
 # parse arguments and do somenthing with them
 args = arg_parser.parse_args()
 
-# init logger
-logger.init_logger("log.log", args.colored, args.notifications)
-
 # load config
 # use default config file
 if os.path.exists('config.json'):
     with open("config.json", 'r') as f:
         cfg = json.load(f)
+    # init logger
+    logger.init_logger("log.log", args.colored, args.notifications)
 # create new config file
 else:
-    log("warn", "Config.json not found! creating new config file and using it for now")
     conf_default = {
+        # IMPORTANT
+        # log colors use ANSI escape codes 
+        # but i don't know how to put these codes in JSON
+        # so, for example, instead of \x1b[30m it will be 30
+        # first color is background, second is foreground
+        # colors split by .
+        "colors": {
+            "ok":           "42.30",
+            "info":         "47.30",
+            "fail":         "41",
+            "warn":         "43.30",
+            "trash":        "90"
+        },
         "links": {
             "base":         "http://94.72.18.202:8083/",
             "index":        "http://94.72.18.202:8083/index.htm",
@@ -51,6 +62,9 @@ else:
     with open('config.json', 'w', encoding='utf-8') as f:
         json.dump(conf_default, f, indent=4)
     cfg = conf_default
+    # init logger
+    logger.init_logger("log.log", args.colored, args.notifications)
+    log("warn", "Config.json not found! creating new config file and using it for now")
 
 # load .env file if present
 dotenv.load_dotenv()

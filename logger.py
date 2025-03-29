@@ -1,17 +1,9 @@
-import requests, logging, time
+import requests, logging, time, json
 from typing import Literal
 
 logger = logging.getLogger(__name__)
 colored: bool = False
 ntfy_topic: str = None
-
-colors = {
-    "ok":   "\033[42m",     # green
-    "info": "\033[47m",      # default
-    "fail": "\033[41m",     # red
-    "warn": "\033[43m",     # yellow
-    "trash":"\033[90m"      # gray
-}
 
 tags = {
     "ok":   "  OK  ",
@@ -37,7 +29,17 @@ def init_logger(
     filename: str, 
     colored_output: bool = False, 
     ntfy_topic_str: str = None):
-    global colored, ntfy_topic
+    global colors, colored, ntfy_topic
+
+    # load colors from config
+    with open("config.json", 'r') as f:
+        colors = json.load(f)["colors"]
+        for key, value in colors.items():
+            value = value.split('.')
+            if len(value) > 1:
+                colors[key] = f"\033[{value[0]}m\033[{value[1]}m"
+            else:
+                colors[key] = f"\033[{value[0]}m"
 
     # colored log output
     colored = colored_output
@@ -112,7 +114,8 @@ def ntfy_post(
 
 # for tests
 if __name__ == "__main__":
-    init_logger("log.log", True, "////")
+    print(colors)
+    init_logger("log.log", True)
     log("ok",   "Test text")
     log("info", "Test text")
     log("fail", "Test text")
