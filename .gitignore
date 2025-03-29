@@ -1,8 +1,9 @@
-__pycache__
-venv
-.vscode
-.env
-db.db
-log.log
-config.toml
-groups.toml
+*
+!.gitignore
+!bot.py
+!db.py
+!exception_handler.py
+!group_parser.py
+!logger.py
+!README.md
+!requirements.txt
