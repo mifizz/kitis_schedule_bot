@@ -6,24 +6,19 @@ colored: bool = False
 ntfy_topic: str = None
 
 colors = {
-    'r':'\033[31m', # red
-    'g':'\033[32m', # green
-    'y':'\033[33m', # yellow
-    'b':'\033[36m', # blue
-    'w':'\033[90m', # gray
-    'o':'\033[93m'  # orange
+    "ok":   "\033[42m",     # green
+    "info": "\033[47m",      # default
+    "fail": "\033[41m",     # red
+    "warn": "\033[43m",     # yellow
+    "trash":"\033[90m"      # gray
 }
+
 tags = {
-    't':'start', # start tag
-    'g':'group', # group tag
-    's':'sched', # schedule tag
-    'p':'ping?', # ping tag
-    'd':'updtm', # update time tag
-    'a':'anncm', # announcement tag
-    'e':'error', # error tag
-    'w':'warng', # warning tag
-    'o':'other', # tag for other information
-    'u':'undef'  # undefined tag
+    "ok":   "  OK  ",
+    "info": " INFO ",
+    "fail": " FAIL ",
+    "warn": " WARN ",
+    "trash":" .... "
 }
 
 ntfy_tags = {
@@ -67,15 +62,14 @@ def init_logger(
         if test_ntfy.ok:
             # enable/disable ntfy.sh (global)
             ntfy_topic = ntfy_topic_str
-            log('o', 'w', "ntfy.sh topic is ok")
+            log("trash", "ntfy.sh topic is ok")
         # topic incorrect
         else:
             ntfy_topic = None
-            log('e', 'r', "ntfy.sh topic is NOT ok! notifications disabled")
+            log("fail", "invalid ntfy.sh topic! notifications disabled")
 
 def log(
-    tag: Literal['t', 'g', 's', 'p', 'd', 'a', 'e', 'w', 'o', 'u'], 
-    color: Literal['r', 'g', 'y', 'b', 'w', 'o'],
+    tag: Literal["ok", "info", "fail", "warn", "trash"],
     text: str,
     will_notify: bool = False,
     post_title: str = 'kitisbot notification',
@@ -83,16 +77,16 @@ def log(
     
     # concat log message and print it
     if colored:
-        output = '\033[90m' + time.asctime() + '\033[0m ' + colors[color] + '[' + tags[tag] + ']\033[0m > ' + text
+        output = '\033[90m' + time.asctime() + '\033[0m ' + colors[tag] + '[' + tags[tag] + ']\033[0m > ' + text
         print(output)
     else:
         output = '['+ tags[tag] + '] > ' + text
         print(output)
     
     # write message in log
-    if tag == 'e':      # error
+    if tag == "fail":      # error
         logger.error(output)
-    elif tag == 'w':    # warning
+    elif tag == "warn":    # warning
         logger.warning(output)
     else:               # info
         logger.info(output)
@@ -115,3 +109,12 @@ def ntfy_post(
             "Tags": f"{tags[tag]}"
         }
     )
+
+# for tests
+if __name__ == "__main__":
+    init_logger("log.log", True, "////")
+    log("ok",   "Test text")
+    log("info", "Test text")
+    log("fail", "Test text")
+    log("warn", "Test text")
+    log("trash","Test text")
