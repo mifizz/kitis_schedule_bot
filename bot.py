@@ -49,7 +49,7 @@ else:
         "admins": [""]
     }
     with open('config.json', 'w', encoding='utf-8') as f:
-        json.dump(conf_default, f)
+        json.dump(conf_default, f, indent=4)
     cfg = conf_default
 
 # load .env file if present
