@@ -1,4 +1,4 @@
-import toml
+import toml, json
 import requests
 from bs4 import BeautifulSoup
 
@@ -7,8 +7,9 @@ groups = {
     "groups": {}
 }
 
-cfg = toml.load("config.toml")
-groups_main_url = cfg["groups"]["url_main"]
+with open("config.json", 'r') as f:
+    cfg = json.load(f)
+groups_main_url = cfg["links"]["s_group"]
 
 response = requests.get(groups_main_url)
 if response.status_code == 200:
