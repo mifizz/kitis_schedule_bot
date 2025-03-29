@@ -1,4 +1,4 @@
-import requests, os, datetime, time, sys, logging, dotenv, argparse, toml, subprocess
+import requests, os, datetime, time, sys, logging, dotenv, argparse, toml, json, subprocess
 import telebot as tb
 from bs4 import BeautifulSoup
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -20,7 +20,7 @@ arg_parser = argparse.ArgumentParser(
 arg_parser.add_argument('-c', '--colored', action='store_true', help='enable colored output in logs')
 arg_parser.add_argument('-t', '--token', help='token of your telegram bot')
 arg_parser.add_argument('-n', '--notifications', help='get error notifications to https://ntfy.sh/[NTFY_TOPIC]', metavar='NTFY_TOPIC')
-arg_parser.add_argument('-f', '--config', help='path to config file')
+# arg_parser.add_argument('-f', '--config', help='path to config file') # to-do
 
 # parse arguments and do somenthing with them
 args = arg_parser.parse_args()
@@ -29,30 +29,28 @@ args = arg_parser.parse_args()
 logger.init_logger("log.log", args.colored, args.notifications)
 
 # load config
-# use config provided via args
-if args.config:
-    cfg = toml.load(args.config)
 # use default config file
-elif os.path.exists('config.toml'):
-    cfg = toml.load('config.toml')
+if os.path.exists('config.json'):
+    with open("config.json", 'r') as f:
+        cfg = json.load(f)
 # create new config file
 else:
-    log('w', 'o', 'config.toml not found! creating new config file and using it for now')
+    log('w', 'o', 'config.json not found! creating new config file and using it for now')
     conf_default = {
-        "groups": {
-            "url_main":     "http://94.72.18.202:8083/cg.htm",
-            "url_start":    "http://94.72.18.202:8083/"
+        "links": {
+            "base":         "http://94.72.18.202:8083/",
+            "index":        "http://94.72.18.202:8083/index.htm",
+            "s_group":      "http://94.72.18.202:8083/cg.htm",
+            "s_lecturer":   "http://94.72.18.202:8083/cp.htm",
+            "s_room":       "http://94.72.18.202:8083/ca.htm",
+            "r_group":      "http://94.72.18.202:8083/vg.htm",
+            "r_lecturer":   "http://94.72.18.202:8083/vp.htm"
         },
-        "lists": {
-            "admins": []
-        },
-        "ping": {
-            "url": "http://94.72.18.202:8083/index.htm"
-        }
+        "admins": [""]
     }
-    with open('config.toml', 'w', encoding='utf-8') as file:
-        toml.dump(conf_default, file)
-    cfg = toml.load('config.toml')
+    with open('config.json', 'w', encoding='utf-8') as f:
+        json.dump(conf_default, f)
+    cfg = conf_default
 
 # load .env file if present
 dotenv.load_dotenv()
@@ -100,6 +98,7 @@ bells = {
 # url_dict contains relative links that are used to 
 # get full url of group schedule
 # parse groups into toml file and use it as groups url dictionary
+# THIS BULLSHIT WILL BE REPLACED WITH KITIS API SOON
 log('o', 'w', 'running group parser...')
 group_parser = subprocess.run([sys.executable, "group_parser.py"])
 if group_parser.returncode == 0:
@@ -113,7 +112,7 @@ groups_count = len(url_dict)
 
 # get full link for schedule request
 def get_url(group):
-    return cfg["groups"]["url_start"] + url_dict[group]
+    return cfg["links"]["base"] + url_dict[group]
 
 # i hope u can guess what does this method do :)
 # maybe i will add more comments to this (i am lazy)
@@ -353,13 +352,13 @@ def bot_ping(message):
         log('p', 'y', f'request failed: too many requests from {message.chat.id}! ({message.chat.username}, {db.get_value(message.chat.id, 'id')})')
         bot.send_message(message.chat.id, 'Вы слишком часто используете команду <b>ping</b>!', parse_mode='HTML')
         return
-    cur_bot_message = bot.send_message(message.chat.id, f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Ожидание ответа...</b>\n<u>Адрес</u>: <i>{cfg["ping"]["url"]}</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', parse_mode='HTML')
+    cur_bot_message = bot.send_message(message.chat.id, f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Ожидание ответа...</b>\n<u>Адрес</u>: <i>{cfg["links"]["index"]}</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', parse_mode='HTML')
     db.update_value(message.chat.id, 'last_ping_request_time', time.time())
     try:
         # try to get website response
-        response = requests.get(f'{cfg["ping"]["url"]}', timeout=5)
+        response = requests.get(f'{cfg["links"]["index"]}', timeout=5)
         # website is working
-        bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Работает!</b>\n<u>Адрес</u>: <i>{cfg["ping"]["url"]}</i>\n<u>Код статуса</u>: <i>{response.status_code}</i>\n<u>Время отклика</u>: <i>{round(response.elapsed.microseconds / 1000) / 1000} сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
+        bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Работает!</b>\n<u>Адрес</u>: <i>{cfg["links"]["index"]}</i>\n<u>Код статуса</u>: <i>{response.status_code}</i>\n<u>Время отклика</u>: <i>{round(response.elapsed.microseconds / 1000) / 1000} сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
         log('p', 'g', f'success: elapsed time - {response.elapsed.microseconds / 1000} ms')
     except Exception as exception:
         if type(exception) == requests.ConnectTimeout:
@@ -370,9 +369,9 @@ def bot_ping(message):
         else:
             log('p', 'r', f'request failed: {exception}')
         # website is down
-        bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Не отвечает!</b>\n<u>Адрес</u>: <i>{cfg["ping"]["url"]}</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
+        bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Не отвечает!</b>\n<u>Адрес</u>: <i>{cfg["links"]["index"]}</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
 
-# ADMIN / DEBUG COMMANDS - ONLY WORKS IF SENDER IS IN ADMIN LIST (cfg -> lists -> admins)
+# ADMIN / DEBUG COMMANDS - ONLY WORKS IF SENDER IS IN ADMIN LIST (cfg -> admins)
 
 # announcement command
 command_announ = "announcement"
@@ -387,7 +386,7 @@ command_announ = "announcement"
 @bot.message_handler(commands=[f'{command_announ}'])
 def announcement(message, file_id = ''):
     # check if in admin list
-    if (str(message.chat.id) not in cfg["lists"]["admins"]):
+    if (str(message.chat.id) not in cfg["admins"]):
         return
     
     # get text of message

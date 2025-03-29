@@ -63,7 +63,7 @@ pip install -r requirements.txt
 
 ## Admin commands
 There will be commands that you can use directly in telegram bot chat, mainly debug commands.
-You should edit *config.toml* file and add admins user_id's in `admins = []` for this commands to work. (example: `admins = [ "123456789", "987654321" ]`)
+You should edit *config.json* file and add admins user_id's in `"admins": []` for this commands to work. (example: `"admins": [ "123456789", "987654321" ]`)
 
 #### **/announcement** - allows you to send news or announcements or whatever you want to certain bot users
 
@@ -155,7 +155,7 @@ pip install -r requirements.txt
 
 ## Комманды админа
 Здесь будут команды, которые вы сможете использовать прямо в чате с ботом, в основном для отладки.
-Вы должны отредактировать файл *config.toml* и добавить user_id админов в список `admins = []`, чтобы эти команды работали. (например `admins = [ "123456789", "987654321" ]`)
+Вы должны отредактировать файл *config.json* и добавить user_id админов в список `"admins": []`, чтобы эти команды работали. (например `"admins": [ "123456789", "987654321" ]`)
 
 #### **/announcement** - позволяет рассылать новости или объявления или что Вы хотите определенным пользователям бота.
 
