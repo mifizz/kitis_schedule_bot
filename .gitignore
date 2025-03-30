@@ -4,6 +4,7 @@
 !db.py
 !exception_handler.py
 !group_parser.py
+!kitis_api.py
 !logger.py
 !README.md
 !requirements.txt

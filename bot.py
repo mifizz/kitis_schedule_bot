@@ -1,13 +1,15 @@
-import requests, os, datetime, time, sys, logging, dotenv, argparse, toml, json, subprocess
+import requests, os, datetime, time, logging, dotenv, argparse, json, traceback
 import telebot as tb
 from bs4 import BeautifulSoup
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from typing import Literal
 
 # local files
 import logger, exception_handler
 from logger import log
 from db import database
 from exception_handler import BotExceptionHandler
+import kitis_api as api
 
 # arguments
 # init argument parser
@@ -109,117 +111,96 @@ bells = {
     '6 Пара':'17:10-18:40',
     '7 Пара':'18:50-20:20'
 }
-# url_dict contains relative links that are used to 
-# get full url of group schedule
-# parse groups into toml file and use it as groups url dictionary
-# THIS BULLSHIT WILL BE REPLACED WITH KITIS API SOON
-log("trash", "Running group parser...")
-group_parser = subprocess.run([sys.executable, "group_parser.py"])
-if group_parser.returncode == 0:
-    log("trash", "Successfully parsed groups into groups.toml")
-else:
-    log("fail", f"Group parser returned error code {group_parser.returncode}, aborting...")
-    exit(group_parser.returncode)
+# links_group contains links to group schedules
+log("trash", "Initializing api...")
+api.init_api()
 
-url_dict = toml.load('groups.toml')["groups"]
-groups_count = len(url_dict)
+log("trash", "Getting links...")
+links_group     = api.get_source_links("s_group")
+links_lecturer  = api.get_source_links("s_lecturer")
+links_room      = api.get_source_links("s_room")
 
-# get full link for schedule request
-def get_url(group):
-    return cfg["links"]["base"] + url_dict[group]
+# generate schedule message based on api info
+def gen_message_schedule(source_type: Literal["group", "lecturer", "room"], source: str) -> str:
+    data = api.get_schedule(source_type, source)
+    # generate schedule by group
+    if source_type == "group":
+        msg = f"Расписание группы <b>{data["head"]}</b>\n"
+        for date, info in data["days"].items():
+            if info["weekday"] == "Воскресенье": break
+            
+            msg += f"\n--------------------------\n\n{date} - <b>{info["weekday"]}</b>\n\n"
+            for lesson in info["lessons"]:
+                msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - {lesson["name"]} {f"({lesson["subgroup"]})" if lesson["subgroup"] != "0" and not "Иностранный язык" in lesson["name"] else ""} - <i>{lesson["room"]}</i>\n"
+    
+    # by lecturer
+    elif source_type == "lecturer":
+        msg = f"Расписание преподавателя <b>{data["head"]}</b>\n"
+        for date, info in data["days"].items():
+            if info["weekday"] == "Воскресенье": break
+            
+            msg += f"\n--------------------------\n\n{date} - <b>{info["weekday"]}</b>\n\n"
+            for lesson in info["lessons"]:
+                msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - <b>{lesson["group"]}</b> - {lesson["name"]} - <i>{lesson["room"]}</i>\n"
+    
+    # by room
+    elif source_type == "room":
+        msg = f"Расписание аудитории <b>{data["head"]}</b>\n"
+        for date, info in data["days"].items():
+            if info["weekday"] == "Воскресенье": break
+            
+            msg += f"\n--------------------------\n\n{date} - <b>{info["weekday"]}</b>\n\n"
+            for lesson in info["lessons"]:
+                msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - {lesson["lecturer"]} - <b>{lesson["group"]}</b> - {lesson["name"]}\n"
+    
+    msg += f"\n--------------------------\n<i>{data["update_time"]}</i>"
+    return msg
 
-# i hope u can guess what does this method do :)
-# maybe i will add more comments to this (i am lazy)
-def get_schedule(url, group):
-    result = 'Расписание для группы <b>' + group + '</b>\n'
-    # try to connect to website
-    response = requests.get(url, timeout=5)
-    if response.status_code == 200:
-        # get all html code
-        html_content = response.content
-        soup = BeautifulSoup(html_content, 'html.parser')
-
-        is_monday = False
-        td_next_is_lesson_time = False
-        table = soup.find('table', class_='inf')
-        for tr in table.find_all('tr'):
-            temp_subgroup_found = False
-            subgroup = ''
-            for td in tr.find_all('td'):
-                has_subgroup = False
-
-                ################# SUBGROUP #################
-                if not temp_subgroup_found and tr.find('td', class_='nul') != None:
-                    has_subgroup = True
-                    temp_tr = tr.find('td', class_='ur')
-                    if temp_tr != None:
-                        if temp_tr.find_next_sibling('td', class_='nul') != None:
-                            subgroup = ' <b>(1-я подгруппа)</b>'
-                        else:
-                            subgroup = ' <b>(2-я подгруппа)</b>'
-                        temp_subgroup_found = True
-                
-                #################  LESSON  #################
-                if td.find('a', class_='z1') != None:
-                    if not is_monday:
-                        result += '<u>' + cur_lesson_number + ' Пара' + '</u> - <i>' + bells[str(cur_lesson_number + ' Пара')] + '</i>'
-                    else:
-                        result += '<u>' + cur_lesson_number + ' Пара' + '</u> - <i>' + bells_monday[str(cur_lesson_number + ' Пара')] + '</i>'
-                    result += ' - ' + td.find('a', class_='z1').text + subgroup
-                    if td.find('a', class_='z2') != None:
-                        result +=  ' - <i>' + td.find('a', class_='z2').text + '</i>'
-                    else:
-                        result += ' - <i>Кабинет не указан</i>'
-                    result += '\n'
-                
-                # don't even ask why is this so shitty
-                ##################  DAYS  ##################
-                if td['class'][0] == 'hd':
-                    if td.text.find('Пн') >= 0:
-                        result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Пн') + ' - <b>Понедельник</b>\n\n<u>Подъём флага</u> - <i>8:15-8:25</i>\n'
-                        is_monday = True
-                    elif td.text.find('Вт') >= 0:
-                        result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Вт') + ' - <b>Вторник</b>\n\n'
-                        is_monday = False
-                    elif td.text.find('Ср') >= 0:
-                        result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Ср') + ' - <b>Среда</b>\n\n'
-                    elif td.text.find('Чт') >= 0:
-                        result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Чт') + ' - <b>Четверг</b>\n\n'
-                    elif td.text.find('Пт') >= 0:
-                        result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Пт') + ' - <b>Пятница</b>\n\n'
-                    elif td.text.find('Сб') >= 0:
-                        result += '\n' + '--------------------------\n\n' + td.text.removesuffix('Сб') + ' - <b>Суббота</b>\n'
-
-                # get number of current lesson
-                if td.text == '1' or td.text == '2' or td.text == '3' or td.text == '4' or td.text == '5' or td.text == '6' or td.text == '7':
-                    cur_lesson_number = td.text
-        # last schedule update time
-        updatetime_group = response.headers.get('Last-Modified')
-        updatetime_group_dt = datetime.datetime.strptime(updatetime_group, '%a, %d %b %Y %H:%M:%S GMT')
-        updatetime_group_dt += datetime.timedelta(hours=2)
-        result += '\n--------------------------\n<i>Последнее обновление: ' + updatetime_group_dt.strftime('%d.%m.%Y в %H:%M:%S') + '</i>'
-    else:
-        log("fail", f"Failed to fetch website! status code: {response.status_code}") # i might just delete this whole if-else section and replace it with some good readable code 8) 
-        raise
-    return result
-
-# generate markup keyboard for group selection
-def gm_groups():
+# generate markup for schedule source
+def gm_schedule_sourcetype():
     markup = InlineKeyboardMarkup()
     markup.row_width = 3
-    group_keys = list(url_dict.keys())
+    markup.add(
+        InlineKeyboardButton("Группы", callback_data="group"),
+        InlineKeyboardButton("Преподаватели", callback_data="lecturer"),
+        InlineKeyboardButton("Аудитории", callback_data="room")
+    )
+    return markup
+kb_source_schedule = gm_schedule_sourcetype()
+
+# generate markup keyboard for group selection
+def gm_schedule_source(source_type: Literal["group", "lecturer", "room"]):
+    markup = InlineKeyboardMarkup()
+    markup.row_width = 3
+    if source_type == "group":      keys = list(links_group.keys())
+    if source_type == "lecturer":   keys = list(links_lecturer.keys())
+    if source_type == "room":       keys = list(links_room.keys())
     IKB_list = list()
 
-    for n in range(len(group_keys)):
-        IKB_list.append(InlineKeyboardButton(group_keys[n], callback_data=group_keys[n]))
+    for n in range(len(keys)):
+        IKB_list.append(InlineKeyboardButton(keys[n], callback_data=keys[n]))
     
     markup.add(*IKB_list)
     return markup
-kb_markup = gm_groups()
+kb_schedule = gm_schedule_source("group")
 
 # check spam for certain commands
 def is_spam(prev_use_time: float, cooldown: float):
     return (time.time() - prev_use_time) < cooldown
+
+def is_spam_or_ungroupped(uid: int):
+    cooldown = 3
+    # check group
+    if not db.get_value(uid, "user_group"):
+        log("warn", f"{uid} did not set a group!")
+        bot.send_message(uid, "Сначала выберите группу! - /group")
+        return True
+    # check spam
+    elif time.time() - db.get_value(uid, "last_schedule_request_time") < cooldown:
+        log("warn", f"{uid} is too fast!")
+        bot.send_message(uid, "Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...")
+        return True
+    return False
 
 # check user
 def checkUser(uid : str, uname : str):
@@ -241,52 +222,44 @@ def start(message):
     # check user
     checkUser(message.chat.id, message.chat.username)
 
+
+def send_schedule(uid: int, source_type: Literal["group", "lecturer", "room"], source: str) -> None:
+    mes = bot.send_message(uid, parse_mode="HTML",
+        text="Получение данных...\n\n<i>Это может занять некоторое время. Если вы это читаете, скорее всего бот восстанавливает соединение с сайтом...\n...а может что-то пошло не так :)</i>")
+    text = gen_message_schedule(source_type, source)
+    if text:
+        log("ok", f"Sent schedule - {uid}")
+        bot.edit_message_text(text, uid, message_id=mes.id, parse_mode="HTML")
+        db.update_value(uid, "last_schedule_request_time", time.time())
+    else:
+        log("fail", f"Did not sent schedule - {uid}")
+        bot.edit_message_text("Не удалось получить расписание! Попробуйте позже...", uid, mes.id, parse_mode="HTML")
+    return
 # Schedule command
-@bot.message_handler(commands=['schedule'])
-def schedule(message):
-    # check user
-    checkUser(message.chat.id, message.chat.username)
-
-    log("info", f'/schedule - {message.chat.id} ({message.chat.username}, {db.get_value(message.chat.id, 'id')})')
-    
-    # check if group is set
-    if not db.get_value(message.chat.id, 'user_group'):
-        log("warn", f"{message.chat.id} group is empty! ({message.chat.username}, {db.get_value(message.chat.id, 'id')})")
-        bot.send_message(message.chat.id, 'Сначала выберите группу! - /group')
-        return
-    # check if using commands too fast (spamming)
-    if is_spam(db.get_value(message.chat.id, 'last_schedule_request_time'), 5):
-        log("warn", f"Too many requests from {message.chat.id}! ({message.chat.username}, {db.get_value(message.chat.id, 'id')})")
-        bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
+@bot.message_handler(commands=["schedule"])
+def bot_schedule(message) -> None:
+    uid = message.chat.id
+    uname = message.chat.username
+    checkUser(uid, uname)
+    log("info", f"/schedule - {uid} ({uname})")
+    if is_spam_or_ungroupped(uid):
         return
     
-    request_notification = bot.send_message(message.chat.id, 'Запрашиваю данные...\n\n<i>Если Вы видите этот текст больше 10 секунд, значит скорее всего что-то пошло не так...</i>', parse_mode='HTML')
-    
-    # try to get and send schedule
-    group = db.get_value(message.chat.id, 'user_group')
-    try:
-        result = get_schedule(get_url(group), group)
-        bot.edit_message_text(result, message.chat.id, request_notification.id, parse_mode='HTML')
-        db.update_value(message.chat.id, 'last_schedule_request_time', time.time())
-        log("ok", f"Sent schedule to {message.chat.id} ({message.chat.username}, {db.get_value(message.chat.id, 'id')})")
-    except Exception as e:
-        bot.edit_message_text('Не удалось получить расписание! Попробуйте позже...', message.chat.id, request_notification.id)
-        raise
+    send_schedule(uid, "group", db.get_value(uid, "user_group"))
+    return
 
-# One time schedule command (scheduleother)
-@bot.message_handler(commands=['scheduleother'])
-def scheduleother(message):
-    # check user
-    checkUser(message.chat.id, message.chat.username)
-
-    log("info", f"/scheduleother - {message.chat.id} ({message.chat.username}, {db.get_value(message.chat.id, 'id')})")
-    # check if using commands too fast (spamming)
-    if is_spam(db.get_value(message.chat.id, 'last_schedule_request_time'), 5):
-        log("warn", f"Too many requests from {message.chat.id}! ({message.chat.username}, {db.get_value(message.chat.id, 'id')})")
-        bot.send_message(message.chat.id, 'Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...')
+# get schedule by source type - group, lecturer or room
+@bot.message_handler(commands=["scheduleby"])
+def bot_scheduleby(message) -> None:
+    uid = message.chat.id
+    uname = message.chat.username
+    checkUser(uid, uname)
+    log("info", f"/scheduleby - {uid} ({uname})")
+    if is_spam_or_ungroupped(uid):
         return
-    bot.send_message(message.chat.id, 'Выберите группу (группа не сохраняется):', reply_markup=kb_markup)
-    db.update_value(message.chat.id, 'last_schedule_request_time', time.time())
+
+    bot.send_message(uid, "Выберите источник расписания:", reply_markup=kb_source_schedule)
+    return
 
 # Group pickup command
 @bot.message_handler(commands=['group'])
@@ -295,19 +268,40 @@ def group_pickup(message):
     checkUser(message.chat.id, message.chat.username)
 
     log("info", f"/group - {message.chat.id} ({message.chat.username}, {db.get_value(message.chat.id, 'id')})")
-    bot.send_message(message.chat.id, 'Выберите группу:', reply_markup=kb_markup)
+    bot.send_message(message.chat.id, 'Выберите свою группу:', reply_markup=kb_schedule)
 
 # Callback query handler (buttons in bot messages)
 @bot.callback_query_handler(func=lambda call: True)
 def callback_query(call):
+    uid = call.message.chat.id
+    uname = call.message.chat.username
+    cd = call.data
+
     cq_action = ''
-    if 'группа не сохраняется' in call.message.text:
-        cq_action = 'sched_other'
-    elif 'Выберите группу:' in call.message.text:
-        cq_action = 'group_pickup'
+    if   "Выберите свою группу:" in call.message.text:          cq_action = "group_pickup"
+    elif "Выберите источник расписания:" in call.message.text:  cq_action = "scheduleby_typeSelect"
+    elif "Выберите группу:" in call.message.text:               cq_action = "scheduleby_group"
+    elif "Выберите преподавателя:" in call.message.text:        cq_action = "scheduleby_lecturer"
+    elif "Выберите аудиторию:" in call.message.text:            cq_action = "scheduleby_room"
+    
+    # scheduleby source type selected
+    if cq_action == "scheduleby_typeSelect":
+        bot.delete_message(uid, call.message.id)
+        if cd == "group":
+            bot.send_message(uid, "Выберите группу:", reply_markup=gm_schedule_source("group"))
+        elif cd == "lecturer":
+            bot.send_message(uid, "Выберите преподавателя:", reply_markup=gm_schedule_source("lecturer"))
+        elif cd == "room":
+            bot.send_message(uid, "Выберите аудиторию:", reply_markup=gm_schedule_source("room"))
+        return
+    # get schedule by group
+    elif "scheduleby" in cq_action:
+        bot.delete_message(uid, call.message.id)
+        source_type = cq_action.split("_")[1]
+        send_schedule(uid, source_type, cd)
     
     # Group pickup request
-    if cq_action == 'group_pickup':
+    elif cq_action == 'group_pickup':
         # check if using commands too fast (spamming)
         if is_spam(db.get_value(call.message.chat.id, 'last_group_request_time'), 3):
             log("warn", f"Too many requests from {call.message.chat.id}! ({call.message.chat.username}, {db.get_value(call.message.chat.id, 'id')})")
@@ -326,24 +320,6 @@ def callback_query(call):
         # why the fuck it did not set a group :sob:
         else:
             log("fail", f"What the actual fuck happened (group for {call.message.chat.id} is not set after trying to set it) ({call.message.chat.username}, {db.get_value(call.message.chat.id, 'id')})")
-    
-    # Schedule request (one-time)
-    elif cq_action == 'sched_other':
-        temp_group = call.data
-        # Closing callback query (Unfreezing buttons)
-        bot.answer_callback_query(call.id)
-
-        bot.delete_message(call.message.chat.id, call.message.id)
-        request_notification = bot.send_message(call.message.chat.id, 'Запрашиваю данные...\n\n<i>Если Вы видите этот текст больше 10 секунд, значит скорее всего что-то пошло не так...</i>', parse_mode='HTML')
-
-        # try to get schedule
-        try:
-            result = get_schedule(get_url(temp_group), temp_group)
-            bot.edit_message_text(result, call.message.chat.id, request_notification.id, parse_mode='HTML')
-            log("ok", f"Sent {temp_group} schedule to {call.message.chat.id} ({call.message.chat.username}, {db.get_value(call.message.chat.id, 'id')})")
-        except Exception as e:
-            bot.edit_message_text('Не удалось получить расписание! Попробуйте позже...', call.message.chat.id, request_notification.id)
-            raise
     
     # Callback query is empty wtf
     elif cq_action == '':
