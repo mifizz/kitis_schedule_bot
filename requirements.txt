@@ -2,4 +2,4 @@ requests
 pyTelegramBotAPI
 python-dotenv
 beautifulsoup4
-toml
+fake-useragent
