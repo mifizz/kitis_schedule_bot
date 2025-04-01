@@ -326,6 +326,7 @@ def bot_ping(message):
     
     response = api.ping(link=cfg["links"]["index"])
     bot.edit_message_text(f"<u>Текущее состояние сайта</u>: <b>{response["status"]}</b>\n<u>Код статуса</u>: <b>{response["code"]}</b>\n<u>Время отклика</u>: <b>{response["time"]} сек.</b>", uid, mes.id, parse_mode="HTML")
+    log("ok", f"/ping code: {response["code"]} - {uid}")
     return
 
 # ADMIN / DEBUG COMMANDS - ONLY WORKS IF SENDER IS IN ADMIN LIST (cfg -> admins)
