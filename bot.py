@@ -310,35 +310,23 @@ def callback_query(call) -> None:
     return
 
 # ping command
-@bot.message_handler(commands=['ping'])
+@bot.message_handler(commands=["ping"])
 def bot_ping(message):
-    # check user
-    checkUser(message.chat.id, message.chat.username)
-
-    log("info", f"/ping - {message.chat.id} ({message.chat.username}, {db.get_value(message.chat.id, 'id')})")
+    uid = message.chat.id
+    uname = message.chat.username
+    dbid = db.get_value(uid, "id")
+    checkUser(uid, uname)
+    log("info", f"/ping - {uid} ({uname}, {dbid})")
     # check for spam
-    if is_spam(db.get_value(message.chat.id, 'last_ping_request_time'), 5):
-        log("warn", f"Too many requests from {message.chat.id}! ({message.chat.username}, {db.get_value(message.chat.id, 'id')})")
-        bot.send_message(message.chat.id, 'Вы слишком часто используете команду <b>ping</b>!', parse_mode='HTML')
+    if is_spam_or_ungroupped(uid, check_type="ping"):
         return
-    cur_bot_message = bot.send_message(message.chat.id, f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Ожидание ответа...</b>\n<u>Адрес</u>: <i>{cfg["links"]["index"]}</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', parse_mode='HTML')
-    db.set_value(message.chat.id, 'last_ping_request_time', time.time())
-    try:
-        # try to get website response
-        response = requests.get(f'{cfg["links"]["index"]}', timeout=5)
-        # website is working
-        bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Работает!</b>\n<u>Адрес</u>: <i>{cfg["links"]["index"]}</i>\n<u>Код статуса</u>: <i>{response.status_code}</i>\n<u>Время отклика</u>: <i>{round(response.elapsed.microseconds / 1000) / 1000} сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
-        log("ok", f"/ping - elapsed time: {response.elapsed.microseconds / 1000} ms")
-    except Exception as exception:
-        if type(exception) == requests.ConnectTimeout:
-            # removing useless text
-            e = str(exception).split('ConnectionPool(')[1].split('): Max retries')[0]       # host='...', port=...
-            timeout = str(exception).split('connect timeout=')[1].removesuffix(')\'))')     # set timeout in seconds
-            log("fail", f"Connection timed out ({timeout}): {e}")
-        else:
-            log("fail", f"/ping - {exception}")
-        # website is down
-        bot.edit_message_text(f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Не отвечает!</b>\n<u>Адрес</u>: <i>{cfg["links"]["index"]}</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', message.chat.id, cur_bot_message.id, parse_mode='HTML')
+    
+    mes = bot.send_message(uid, f"<u>Текущее состояние сайта</u>: <b>ожидание...</b>\n<u>Код статуса</u>: <b>ожидание...</b>\n<u>Время отклика</u>: <b>ожидание...</b>", parse_mode="HTML")
+    db.set_value(uid, 'last_ping_request_time', time.time())
+    
+    response = api.ping(link=cfg["links"]["index"])
+    bot.edit_message_text(f"<u>Текущее состояние сайта</u>: <b>{response["status"]}</b>\n<u>Код статуса</u>: <b>{response["code"]}</b>\n<u>Время отклика</u>: <b>{response["time"]} сек.</b>", uid, mes.id, parse_mode="HTML")
+    return
 
 # ADMIN / DEBUG COMMANDS - ONLY WORKS IF SENDER IS IN ADMIN LIST (cfg -> admins)
 

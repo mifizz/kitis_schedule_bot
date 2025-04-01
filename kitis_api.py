@@ -35,6 +35,23 @@ t_bells_week = {
     "7":"18:50-20:20"
 }
 
+statuses = {
+    200: "В норме",
+    204: "Нет контента (в норме)",
+    400: "Неверный запрос",
+    401: "Неавторизованный (ошибка запроса)",
+    403: "Доступ запрещён",
+    404: "Не найдено",
+    408: "Таймаут запроса",
+    409: "Конфликт запросов",
+    418: "Я чайник",
+    429: "Слишком много запросов",
+    500: "Ошибка внутреннего сервера",
+    502: "Неверный шлюз",
+    503: "Сервис недоступен",
+    504: "Таймаут шлюза"
+}
+
 # create links dictionary
 links = dict()
 
@@ -128,15 +145,17 @@ def session_test() -> int:
         log("ok", "Updated session")
         return 0
 
-def ping(link: str) -> requests.Response:
+# maybe i will sometime make so message updates in realtime while request or retry is performing
+def ping(link: str) -> dict:
     global s
+    result = dict()
 
     r = try_request(link)
 
-    if r.status_code == 200:
-        return r
-    else:
-        return None
+    result["status"] = statuses[r.status_code]
+    result["code"] = r.status_code
+    result["time"] = round(r.elapsed.microseconds / 1000) / 1000    # elapsed time in seconds, %.3f format
+    return result
 
 # s_ stands for schedule, r_ for records
 def get_source_links(source: Literal["s_group", "s_lecturer", "s_room", "r_group", "r_lecturer"]) -> dict:
