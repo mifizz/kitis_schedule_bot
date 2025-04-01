@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS users (
         return self.connection.commit()
     
     # set value in given column
-    def update_value(self, user_id: int, column: str, value: None):
+    def set_value(self, user_id: int, column: str, value: None):
         self.cursor.execute(f'UPDATE users SET {column} = \'{value}\' WHERE user_id = {user_id}')
         return self.connection.commit()
 

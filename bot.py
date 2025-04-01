@@ -91,26 +91,6 @@ except Exception as e:
 # Connecting to database
 db = database('db.db')
 
-# bells for monday
-bells_monday = {
-    '1 Пара':'8:30-9:00 / 15:20-15:50',
-    '2 Пара':'9:10-10:30',
-    '3 Пара':'10:40-12:00',
-    '4 Пара':'12:20-13:40',
-    '5 Пара':'13:50-15:10',
-    '6 Пара':'16:00-17:20',
-    '7 Пара':'17:30-18:50'
-}
-# bells for all other days (Tue, Wed, Thu, Fri, Sat)
-bells = {
-    '1 Пара':'8:30-10:00',
-    '2 Пара':'10:10-11:40',
-    '3 Пара':'12:10-13:40',
-    '4 Пара':'13:50-15:20',
-    '5 Пара':'15:30-17:00',
-    '6 Пара':'17:10-18:40',
-    '7 Пара':'18:50-20:20'
-}
 # links_group contains links to group schedules
 log("trash", "Initializing api...")
 api.init_api()
@@ -188,15 +168,15 @@ kb_schedule = gm_schedule_source("group")
 def is_spam(prev_use_time: float, cooldown: float):
     return (time.time() - prev_use_time) < cooldown
 
-def is_spam_or_ungroupped(uid: int):
+def is_spam_or_ungroupped(uid: int, check_type: Literal["schedule", "group", "ping"]):
     cooldown = 3
-    # check group
-    if not db.get_value(uid, "user_group"):
+    # check group if needed
+    if check_type != "group" and not db.get_value(uid, "user_group"):
         log("warn", f"{uid} did not set a group!")
         bot.send_message(uid, "Сначала выберите группу! - /group")
         return True
     # check spam
-    elif time.time() - db.get_value(uid, "last_schedule_request_time") < cooldown:
+    elif time.time() - db.get_value(uid, f"last_{check_type}_request_time") < cooldown:
         log("warn", f"{uid} is too fast!")
         bot.send_message(uid, "Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...")
         return True
@@ -207,7 +187,7 @@ def checkUser(uid : str, uname : str):
     # check if user already exists
     if db.user_exists(uid):
         if db.get_value(uid, 'username') != uname:
-            db.update_value(uid, 'username', uname)
+            db.set_value(uid, 'username', uname)
             log("trash", f"Updated {uid} username: {uname}")
     # otherwise add new user to database
     else:
@@ -230,7 +210,7 @@ def send_schedule(uid: int, source_type: Literal["group", "lecturer", "room"], s
     if text:
         log("ok", f"Sent schedule - {uid}")
         bot.edit_message_text(text, uid, message_id=mes.id, parse_mode="HTML")
-        db.update_value(uid, "last_schedule_request_time", time.time())
+        db.set_value(uid, "last_schedule_request_time", time.time())
     else:
         log("fail", f"Did not sent schedule - {uid}")
         bot.edit_message_text("Не удалось получить расписание! Попробуйте позже...", uid, mes.id, parse_mode="HTML")
@@ -242,7 +222,7 @@ def bot_schedule(message) -> None:
     uname = message.chat.username
     checkUser(uid, uname)
     log("info", f"/schedule - {uid} ({uname})")
-    if is_spam_or_ungroupped(uid):
+    if is_spam_or_ungroupped(uid, check_type="schedule"):
         return
     
     send_schedule(uid, "group", db.get_value(uid, "user_group"))
@@ -255,7 +235,7 @@ def bot_scheduleby(message) -> None:
     uname = message.chat.username
     checkUser(uid, uname)
     log("info", f"/scheduleby - {uid} ({uname})")
-    if is_spam_or_ungroupped(uid):
+    if is_spam_or_ungroupped(uid, check_type="schedule"):
         return
 
     bot.send_message(uid, "Выберите источник расписания:", reply_markup=kb_source_schedule)
@@ -263,19 +243,21 @@ def bot_scheduleby(message) -> None:
 
 # Group pickup command
 @bot.message_handler(commands=['group'])
-def group_pickup(message):
+def bot_group(message) -> None:
     # check user
     checkUser(message.chat.id, message.chat.username)
 
     log("info", f"/group - {message.chat.id} ({message.chat.username}, {db.get_value(message.chat.id, 'id')})")
     bot.send_message(message.chat.id, 'Выберите свою группу:', reply_markup=kb_schedule)
+    return
 
 # Callback query handler (buttons in bot messages)
 @bot.callback_query_handler(func=lambda call: True)
-def callback_query(call):
+def callback_query(call) -> None:
     uid = call.message.chat.id
     uname = call.message.chat.username
     cd = call.data
+    dbid = db.get_value(uid, "id")
 
     cq_action = ''
     if   "Выберите свою группу:" in call.message.text:          cq_action = "group_pickup"
@@ -301,34 +283,31 @@ def callback_query(call):
         send_schedule(uid, source_type, cd)
     
     # Group pickup request
-    elif cq_action == 'group_pickup':
+    elif cq_action == "group_pickup":
         # check if using commands too fast (spamming)
-        if is_spam(db.get_value(call.message.chat.id, 'last_group_request_time'), 3):
-            log("warn", f"Too many requests from {call.message.chat.id}! ({call.message.chat.username}, {db.get_value(call.message.chat.id, 'id')})")
-            bot.send_message(call.message.chat.id, 'Вы слишком часто меняете группу! Подождите немного...')
-            # Closing callback query (Unfreezing buttons)
+        if is_spam_or_ungroupped(uid, check_type="group"):
             bot.answer_callback_query(call.id)
             return
-        db.update_value(call.message.chat.id, 'last_group_request_time', time.time())
-        db.update_value(call.message.chat.id, 'user_group', call.data)
-        bot.send_message(call.message.chat.id, f'Вы выбрали группу {db.get_value(call.message.chat.id, 'user_group')}!')
-        # Closing callback query (Unfreezing buttons)
-        bot.answer_callback_query(call.id)
+        db.set_value(uid, 'last_group_request_time', time.time())
+        db.set_value(uid, 'user_group', cd)
+        bot.send_message(uid, f'Вы выбрали группу {db.get_value(uid, 'user_group')}!')
         # check if user has group
-        if db.user_has_group(call.message.chat.id):
-            log("ok", f"Set {db.get_value(call.message.chat.id, 'user_group')} group for {call.message.chat.id} ({call.message.chat.username}, {db.get_value(call.message.chat.id, 'id')})")
+        if db.user_has_group(uid):
+            log("ok", f"Set {db.get_value(uid, 'user_group')} group for {uid} ({uname}, {dbid})")
         # why the fuck it did not set a group :sob:
         else:
-            log("fail", f"What the actual fuck happened (group for {call.message.chat.id} is not set after trying to set it) ({call.message.chat.username}, {db.get_value(call.message.chat.id, 'id')})")
+            log("fail", f"What the actual fuck happened (group for {uid} is not set after trying to set it) ({uname}, {dbid})")
     
     # Callback query is empty wtf
     elif cq_action == '':
-        bot.answer_callback_query(call.id)
-        bot.send_message(call.message.chat.id, 'Не могу выполнить запрос!')
-        log("fail", f"Empty callback query action from {call.message.chat.id} ({call.message.chat.username}, {db.get_value(call.message.chat.id, 'id')})")
+        bot.send_message(uid, 'Не могу выполнить запрос!')
+        log("fail", f"Empty callback query action from {uid} ({uname}, {dbid})")
     # Unknown callback query action (you are cooked up)
     else:
-        log("fail", f"Unknown callback query action from {call.message.chat.id} ({call.message.chat.username}, {db.get_value(call.message.chat.id, 'id')})")
+        log("fail", f"Unknown callback query action from {uid} ({uname}, {dbid})")
+    # Closing callback query (Unfreezing buttons)
+    bot.answer_callback_query(call.id)
+    return
 
 # ping command
 @bot.message_handler(commands=['ping'])
@@ -343,7 +322,7 @@ def bot_ping(message):
         bot.send_message(message.chat.id, 'Вы слишком часто используете команду <b>ping</b>!', parse_mode='HTML')
         return
     cur_bot_message = bot.send_message(message.chat.id, f'Бот <b>работает</b>!\n\nТекущее состояние сайта: <b>Ожидание ответа...</b>\n<u>Адрес</u>: <i>{cfg["links"]["index"]}</i>\n<u>Код статуса</u>: <i>---</i>\n<u>Время отклика</u>: <i>-.--- сек.</i>', parse_mode='HTML')
-    db.update_value(message.chat.id, 'last_ping_request_time', time.time())
+    db.set_value(message.chat.id, 'last_ping_request_time', time.time())
     try:
         # try to get website response
         response = requests.get(f'{cfg["links"]["index"]}', timeout=5)
@@ -452,8 +431,8 @@ def photo_handler(message):
         announcement(message, message.photo[-1].file_id)
 
 log("trash", "Bot launched")
-# Launching bot polling
-bot.polling(timeout=20, long_polling_timeout = 10)
+# Launch bot polling
+bot.infinity_polling(timeout=20, long_polling_timeout = 10)
 
 # Stopping bot (there is actually nothing to stop, just close database (useless because program will exit anyway))
 db.close()
