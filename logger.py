@@ -108,7 +108,7 @@ def ntfy_post(
         headers={
             "Title": f"{title}",
             "Priority": f"{priorities[tag]}",
-            "Tags": f"{tags[tag]}"
+            "Tags": f"{ntfy_tags[tag]}"
         }
     )
 

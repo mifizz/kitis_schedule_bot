@@ -83,7 +83,7 @@ else:
 # initialize bot
 try:
     exception_handler.set_token(TOKEN)
-    bot = tb.TeleBot(TOKEN, exception_handler=BotExceptionHandler())
+    bot = tb.TeleBot(TOKEN, exception_handler=BotExceptionHandler(), threaded=False)
 except Exception as e:
     log("fail", f"Can't initialize bot: {e}, aborting...")
     exit(1)
@@ -419,9 +419,26 @@ def photo_handler(message):
     if message.caption and f'/{command_announ}' in message.caption:
         announcement(message, message.photo[-1].file_id)
 
-log("trash", "Bot launched")
+@bot.message_handler(commands=["test"])
+def debug_bot_test(message) -> None:
+    uid = message.chat.id
+    uname = message.chat.username
+
+    if str(uid) not in cfg["admins"]:
+        return
+    # here i can test anything i want
+    return
+
 # Launch bot polling
-bot.infinity_polling(timeout=20, long_polling_timeout = 10)
+# to stop bot hit CTRL+C 2 times within 2 seconds
+while True:
+    log("trash", "Bot launched")
+    try:
+        bot.polling(timeout=10, long_polling_timeout=20)
+    except Exception as e:
+        log("fail", f"Bot crashed with error: {e}, exception type: {type(e)}")
+    # log("trash", "Bot crashed, rebooting in 2 seconds...")
+    time.sleep(2)
 
 # Stopping bot (there is actually nothing to stop, just close database (useless because program will exit anyway))
 db.close()
