@@ -100,9 +100,15 @@ links_group     = api.get_source_links("s_group")
 links_lecturer  = api.get_source_links("s_lecturer")
 links_room      = api.get_source_links("s_room")
 
+if not links_group or not links_lecturer or not links_room:
+    log("fail", "Can not get links, shutting down...")
+    exit(2)
+
 # generate schedule message based on api info
 def gen_message_schedule(source_type: Literal["group", "lecturer", "room"], source: str) -> str:
     data = api.get_schedule(source_type, source)
+    if not data:
+        return None
     # generate schedule by group
     if source_type == "group":
         msg = f"Расписание группы <b>{data["head"]}</b>\n"

@@ -123,6 +123,8 @@ def session_test() -> int:
     log("trash", "Testing session...")
     test_host = "http://94.72.18.202:8083/index.htm"
     r = try_request(test_host)
+    if not r:
+        return 2
 
     if r.status_code == 200:
         log("ok", "Session is ok, host is available")
@@ -151,6 +153,12 @@ def ping(link: str) -> dict:
     result = dict()
 
     r = try_request(link)
+    if not r:
+        return {
+            "status":   "Всё плохо...",
+            "code":     "---",
+            "time":     "-.---"
+        }
 
     result["status"] = statuses[r.status_code]
     result["code"] = r.status_code
@@ -297,7 +305,7 @@ def get_schedule(source_type: Literal["group", "lecturer", "room"], source: str)
 
     r = try_request(link)
     if not r:
-        return 1
+        return None
     soup = BeautifulSoup(r.content, "html.parser")
     data = parse_soup_schedule(soup)
 
@@ -376,4 +384,5 @@ if __name__ == "__main__":
     logger.init_logger("log.log", True)
     init_api()
 
-    print(f"{get_schedule("group", "ИСс24-1")}")
+    # print(f"{get_schedule("group", "ИСс24-1")}")
+    # ping(config["links"]["base"])
