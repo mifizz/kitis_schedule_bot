@@ -18,9 +18,17 @@ if os.path.exists("config.json"):
         cfg = json.load(f)
     # init logger
     logger.init_logger("log.log", cfg["colored_logs"], cfg["ntfy_topic"])
+    # choose mode
+    bot_mode = cfg["mode"]
+    if not bot_mode or (bot_mode != "polling" and bot_mode != "webhook"):
+        log("fail", "config.mode must be either 'polling' or 'webhook'!")
+        exit(1)
+
 # create new config file
 else:
     conf_default = {
+        # mode: 'polling' OR 'webhook'
+        "mode":             "polling",
         # IMPORTANT
         # log colors use ANSI escape codes 
         # but i don't know how to put these codes in JSON
@@ -36,6 +44,9 @@ else:
             "trash":        "90"
         },
         "links": {
+            # webhook url MUST be provided if using webhook mode
+            # ignored if using polling mode
+            "webhook":      "https://example.com/kitisbot_webhook",
             "base":         "http://94.72.18.202:8083/",
             "index":        "http://94.72.18.202:8083/index.htm",
             "s_group":      "http://94.72.18.202:8083/cg.htm",
@@ -421,20 +432,61 @@ def debug_bot_test(message) -> None:
     # here i can test anything i want
     return
 
-# Launch bot polling
-# to stop bot hit CTRL+C 2 times within 2 seconds
-while True:
-    log("trash", "Bot launched")
-    try:
-        bot.polling(timeout=10, long_polling_timeout=20)
-        print("\nHit CTRL+C again to stop bot")
-    except Exception as e:
-        log("fail", f"Bot crashed with error: {e}, exception type: {type(e)}")
-    # log("trash", "Bot crashed, rebooting in 2 seconds...")
-    try:
-        time.sleep(2)
-    except (KeyboardInterrupt):
-        db.close()
-        print()
-        log("trash", "Bot stopped")
-        exit()
+# initialize flask and webhook if using webhook mode
+if bot_mode == "webhook":
+    from flask import Flask, request
+    app = Flask(__name__)
+
+    @app.route("/kitisbot_webhook", methods=["POST"])
+    def handle_webhook():
+        try:
+            if request.stream:
+                update = tb.types.Update.de_json(request.stream.read().decode("utf-8"))
+                bot.process_new_updates([update])
+                return "OK", 200
+            else:
+                log("warn", "Webhook: invalid request")
+                return "No data", 400
+        except Exception as e:
+            log("fail", f"Webhook: error - {e}")
+            return "Error", 500
+
+    def set_webhook():
+        try:
+            bot.remove_webhook()
+            webhook_url = cfg["links"]["webhook"]
+            bot.set_webhook(url=webhook_url)
+            log("trash", f"Set webhook: '{webhook_url}'")
+        except Exception as e:
+            log("fail", f"Failed to set webhook: {e}")
+            exit(3)
+    
+    set_webhook()
+    if __name__ == "__main__":
+        try:
+            app.run(host="0.0.0.0", port=8443, debug=False)
+            exit()
+        except Exception as e:
+            log("fail", f"Flask app crashed with error: {e}")
+            exit(4)
+
+# launch polling if using polling mode
+elif bot_mode == "polling" and __name__ == "__main__":
+    # hit CTRL+C 2 times within 2 seconds to stop bot
+    while True:
+        log("trash", "Bot launched")
+        try:
+            bot.polling(timeout=10, long_polling_timeout=20)
+            print("\nHit CTRL+C again to stop bot")
+        except Exception as e:
+            log("fail", f"Bot crashed with error: {e}, exception type: {type(e)}")
+        try:
+            time.sleep(2)
+        except (KeyboardInterrupt):
+            db.close()
+            print()
+            log("trash", "Bot stopped")
+            exit()
+
+log("trash", "How did we get here? ok byeee")
+exit(128)
