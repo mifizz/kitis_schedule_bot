@@ -110,31 +110,37 @@ def gen_message_schedule(source_type: Literal["group", "lecturer", "room"], sour
     if source_type == "group":
         msg = f"Расписание группы <b>{data["head"]}</b>\n"
         for date, info in data["days"].items():
-            if info["weekday"] == "Воскресенье": break
+            if not info["lessons"]: continue
             
             msg += f"\n--------------------------\n\n{date} - <b>{info["weekday"]}</b>\n\n"
             for lesson in info["lessons"]:
                 msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - {lesson["name"]} {f"({lesson["subgroup"]})" if lesson["subgroup"] != "0" and not "Иностранный язык" in lesson["name"] else ""} - <i>{lesson["room"]}</i>\n"
+        if msg == f"Расписание группы <b>{data["head"]}</b>\n":
+            msg += "\n--------------------------\n\n<i>Кажется, здесь ничего нет...</i>\n"
     
     # by lecturer
     elif source_type == "lecturer":
         msg = f"Расписание преподавателя <b>{data["head"]}</b>\n"
         for date, info in data["days"].items():
-            if info["weekday"] == "Воскресенье": break
+            if not info["lessons"]: continue
             
             msg += f"\n--------------------------\n\n{date} - <b>{info["weekday"]}</b>\n\n"
             for lesson in info["lessons"]:
                 msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - <b>{lesson["group"]}</b> - {lesson["name"]} - <i>{lesson["room"]}</i>\n"
+        if msg == f"Расписание преподавателя <b>{data["head"]}</b>\n":
+            msg += "\n--------------------------\n\n<i>Кажется, здесь ничего нет...</i>\n"
     
     # by room
     elif source_type == "room":
         msg = f"Расписание аудитории <b>{data["head"]}</b>\n"
         for date, info in data["days"].items():
-            if info["weekday"] == "Воскресенье": break
+            if not info["lessons"]: continue
             
             msg += f"\n--------------------------\n\n{date} - <b>{info["weekday"]}</b>\n\n"
             for lesson in info["lessons"]:
                 msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - {lesson["lecturer"]} - <b>{lesson["group"]}</b> - {lesson["name"]}\n"
+        if msg == f"Расписание аудитории <b>{data["head"]}</b>\n":
+            msg += "\n--------------------------\n\n<i>Кажется, здесь ничего нет...</i>\n"
     
     msg += f"\n--------------------------\n<i>{data["update_time"]}</i>"
     return msg
@@ -167,10 +173,6 @@ def gm_schedule_source(source_type: Literal["group", "lecturer", "room"]):
     return markup
 kb_schedule = gm_schedule_source("group")
 
-# check spam for certain commands
-def is_spam(prev_use_time: float, cooldown: float):
-    return (time.time() - prev_use_time) < cooldown
-
 def is_spam_or_ungroupped(uid: int, check_type: Literal["schedule", "group", "ping"]):
     cooldown = 3
     # check group if needed
@@ -181,7 +183,7 @@ def is_spam_or_ungroupped(uid: int, check_type: Literal["schedule", "group", "pi
     # check spam
     elif time.time() - db.get_value(uid, f"last_{check_type}_request_time") < cooldown:
         log("warn", f"{uid} is too fast!")
-        bot.send_message(uid, "Вы слишком часто запрашиваете расписание! Подождите немного и попробуйте снова...")
+        bot.send_message(uid, "Вы слишком часто делаете запросы! Подождите немного и попробуйте снова...")
         return True
     return False
 
