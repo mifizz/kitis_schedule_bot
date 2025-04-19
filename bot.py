@@ -487,6 +487,6 @@ elif bot_mode == "polling" and __name__ == "__main__":
             print()
             log("trash", "Bot stopped")
             exit()
-
-log("trash", "How did we get here? ok byeee")
-exit(128)
+if __name__ == "__main__":
+    log("trash", "How did we get here? ok byeee")
+    exit(128)
