@@ -1,4 +1,4 @@
-import requests, os, datetime, time, logging, dotenv, argparse, json, traceback
+import requests, os, time, logging, dotenv, json
 import telebot as tb
 from bs4 import BeautifulSoup
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -11,29 +11,13 @@ from db import database
 from exception_handler import BotExceptionHandler
 import kitis_api as api
 
-# arguments
-# init argument parser
-arg_parser = argparse.ArgumentParser(
-    prog='bot.py',
-    description='Bot for parsing and viewing Kitis groups schedule in telegram bot'
-)
-
-# add arguments to parser
-arg_parser.add_argument('-c', '--colored', action='store_true', help='enable colored output in logs')
-arg_parser.add_argument('-t', '--token', help='token of your telegram bot')
-arg_parser.add_argument('-n', '--notifications', help='get error notifications to https://ntfy.sh/[NTFY_TOPIC]', metavar='NTFY_TOPIC')
-# arg_parser.add_argument('-f', '--config', help='path to config file') # to-do
-
-# parse arguments and do somenthing with them
-args = arg_parser.parse_args()
-
 # load config
 # use default config file
-if os.path.exists('config.json'):
+if os.path.exists("config.json"):
     with open("config.json", 'r') as f:
         cfg = json.load(f)
     # init logger
-    logger.init_logger("log.log", args.colored, args.notifications)
+    logger.init_logger("log.log", cfg["colored_logs"], cfg["ntfy_topic"])
 # create new config file
 else:
     conf_default = {
@@ -43,6 +27,7 @@ else:
         # so, for example, instead of \x1b[30m it will be 30
         # first color is background, second is foreground
         # colors split by .
+        "colored_logs":     False,
         "colors": {
             "ok":           "42.30",
             "info":         "47.30",
@@ -59,23 +44,22 @@ else:
             "r_group":      "http://94.72.18.202:8083/vg.htm",
             "r_lecturer":   "http://94.72.18.202:8083/vp.htm"
         },
-        "admins": [""]
+        "admins":           [""],
+        # topic example: "kitis_schedule_bot"
+        "ntfy_topic":       ""
     }
-    with open('config.json', 'w', encoding='utf-8') as f:
+    with open("config.json", 'w', encoding="utf-8") as f:
         json.dump(conf_default, f, indent=4)
     cfg = conf_default
     # init logger
-    logger.init_logger("log.log", args.colored, args.notifications)
-    log("warn", "Config.json not found! creating new config file and using it for now")
+    logger.init_logger("log.log", cfg["colored_logs"], cfg["ntfy_topic"])
+    log("warn", "Config.json not found! Created new config file and using it for now")
 
 # load .env file if present
 dotenv.load_dotenv()
-# get token from argument if present
-if args.token:
-    TOKEN = args.token
 # get token from .env file if present
-elif os.getenv('TOKEN'):
-    TOKEN = os.getenv('TOKEN')
+if os.getenv("TOKEN"):
+    TOKEN = os.getenv("TOKEN")
 # no token given -> abort
 else:
     log("fail", "No token given, aborting...")
@@ -84,6 +68,8 @@ else:
 try:
     exception_handler.set_token(TOKEN)
     bot = tb.TeleBot(TOKEN, exception_handler=BotExceptionHandler(), threaded=False)
+    # remove webhook if exists
+    bot.remove_webhook()
 except Exception as e:
     log("fail", f"Can't initialize bot: {e}, aborting...")
     exit(1)
@@ -441,11 +427,14 @@ while True:
     log("trash", "Bot launched")
     try:
         bot.polling(timeout=10, long_polling_timeout=20)
+        print("\nHit CTRL+C again to stop bot")
     except Exception as e:
         log("fail", f"Bot crashed with error: {e}, exception type: {type(e)}")
     # log("trash", "Bot crashed, rebooting in 2 seconds...")
-    time.sleep(2)
-
-# Stopping bot (there is actually nothing to stop, just close database (useless because program will exit anyway))
-db.close()
-log("trash", "Bot stopped")
+    try:
+        time.sleep(2)
+    except (KeyboardInterrupt):
+        db.close()
+        print()
+        log("trash", "Bot stopped")
+        exit()
