@@ -106,42 +106,25 @@ def gen_message_schedule(source_type: Literal["group", "lecturer", "room"], sour
     data = api.get_schedule(source_type, source)
     if not data:
         return None
-    # generate schedule by group
-    if source_type == "group":
-        msg = f"Расписание группы <b>{data["head"]}</b>\n"
-        for date, info in data["days"].items():
-            if not info["lessons"]: continue
-            
-            msg += f"\n--------------------------\n\n{date} - <b>{info["weekday"]}</b>\n\n"
+    # generate message
+    if source_type == "group":      msg = f"Расписание группы <b>{data["head"]}</b>\n"
+    elif source_type == "lecturer": msg = f"Расписание преподавателя <b>{data["head"]}</b>\n"
+    elif source_type == "room":     msg = f"Расписание аудитории <b>{data["head"]}</b>\n"
+
+    for date, info in data["days"].items():
+        if not info["lessons"] and (info["weekday"] == "Суббота" or info["weekday"] == "Воскресенье"): continue
+        
+        msg += f"\n--------------------------\n\n{date} - <b>{info["weekday"]}</b>\n\n"
+        if source_type == "group": 
             for lesson in info["lessons"]:
                 msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - {lesson["name"]} {f"({lesson["subgroup"]})" if lesson["subgroup"] != "0" and not "Иностранный язык" in lesson["name"] else ""} - <i>{lesson["room"]}</i>\n"
-        if msg == f"Расписание группы <b>{data["head"]}</b>\n":
-            msg += "\n--------------------------\n\n<i>Кажется, здесь ничего нет...</i>\n"
-    
-    # by lecturer
-    elif source_type == "lecturer":
-        msg = f"Расписание преподавателя <b>{data["head"]}</b>\n"
-        for date, info in data["days"].items():
-            if not info["lessons"]: continue
-            
-            msg += f"\n--------------------------\n\n{date} - <b>{info["weekday"]}</b>\n\n"
+        elif source_type == "lecturer":
             for lesson in info["lessons"]:
                 msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - <b>{lesson["group"]}</b> - {lesson["name"]} - <i>{lesson["room"]}</i>\n"
-        if msg == f"Расписание преподавателя <b>{data["head"]}</b>\n":
-            msg += "\n--------------------------\n\n<i>Кажется, здесь ничего нет...</i>\n"
-    
-    # by room
-    elif source_type == "room":
-        msg = f"Расписание аудитории <b>{data["head"]}</b>\n"
-        for date, info in data["days"].items():
-            if not info["lessons"]: continue
-            
-            msg += f"\n--------------------------\n\n{date} - <b>{info["weekday"]}</b>\n\n"
+        elif source_type == "room":
             for lesson in info["lessons"]:
                 msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - {lesson["lecturer"]} - <b>{lesson["group"]}</b> - {lesson["name"]}\n"
-        if msg == f"Расписание аудитории <b>{data["head"]}</b>\n":
-            msg += "\n--------------------------\n\n<i>Кажется, здесь ничего нет...</i>\n"
-    
+
     msg += f"\n--------------------------\n<i>{data["update_time"]}</i>"
     return msg
 
@@ -489,6 +472,3 @@ elif bot_mode == "polling" and __name__ == "__main__":
             print()
             log("trash", "Bot stopped")
             exit()
-if __name__ == "__main__":
-    log("trash", "How did we get here? ok byeee")
-    exit(128)
