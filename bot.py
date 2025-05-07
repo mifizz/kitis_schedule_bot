@@ -117,7 +117,7 @@ def gen_message_schedule(source_type: Literal["group", "lecturer", "room"], sour
         msg += f"\n--------------------------\n\n{date} - <b>{info["weekday"]}</b>\n\n"
         if source_type == "group": 
             for lesson in info["lessons"]:
-                msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - {lesson["name"]} {f"({lesson["subgroup"]})" if lesson["subgroup"] != "0" and not "Иностранный язык" in lesson["name"] else ""} - <i>{lesson["room"]}</i>\n"
+                msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - {lesson["name"]} {f"({lesson["subgroup"]}) " if lesson["subgroup"] != "0" and not "Иностранный язык" in lesson["name"] else ""}- <i>{lesson["room"]}</i>\n"
         elif source_type == "lecturer":
             for lesson in info["lessons"]:
                 msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - <b>{lesson["group"]}</b> - {lesson["name"]} - <i>{lesson["room"]}</i>\n"
