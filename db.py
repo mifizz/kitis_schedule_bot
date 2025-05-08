@@ -1,5 +1,7 @@
 import sqlite3
 
+from requests import check_compatibility
+
 class database:
 
     def __init__(self, db_file):
@@ -8,18 +10,18 @@ class database:
         # create a new database table if not exists
         self.cursor.execute("""
 CREATE TABLE IF NOT EXISTS users (
-                            id INTEGER PRIMARY KEY, 
-                            user_id INTEGER UNIQUE NOT NULL, 
-                            username TEXT, 
-                            user_group TEXT, 
-                            join_date DATETIME NOT NULL DEFAULT ((DATETIME('now'))), 
-                            last_schedule_request_time REAL DEFAULT 0, 
+                            id INTEGER PRIMARY KEY,
+                            user_id INTEGER UNIQUE NOT NULL,
+                            username TEXT,
+                            user_group TEXT,
+                            join_date DATETIME NOT NULL DEFAULT ((DATETIME('now'))),
+                            last_schedule_request_time REAL DEFAULT 0,
                             last_group_request_time REAL DEFAULT 0,
                             last_ping_request_time REAL DEFAULT 0)
 """)
         # here goes checks for all new columns that were added with updates
         self.add_column_if_not_exists('last_ping_request_time', 'REAL', 0)
-    
+
     # guess what does this do
     def add_column_if_not_exists(self, c_name: str, c_type: str, c_default=None):
         # fetch all columns from database
@@ -35,28 +37,29 @@ CREATE TABLE IF NOT EXISTS users (
         return self.connection.commit()
 
     # Check if user exists
-    def user_exists(self, user_id):
+    def user_exists(self, user_id: int | str):
+        uid = f"{user_id}"
         result = self.cursor.execute('SELECT id FROM users WHERE user_id = ?', (user_id,))
         return bool(len(result.fetchall()))
-    
+
     # Check if user has group
-    def user_has_group(self, user_id):
+    def user_has_group(self, user_id: int | str):
         result = self.cursor.execute('SELECT user_group FROM users WHERE user_id = ?', (user_id,))
         return bool(len(result.fetchall()))
-    
+
     # Add user to database
-    def add_user(self, user_id, username):
+    def add_user(self, user_id: int | str, username):
         self.cursor.execute('INSERT INTO users (`user_id`, `username`, `last_schedule_request_time`, `last_group_request_time`) VALUES (?, ?, ?, ?)', (user_id, username, 0, 0))
         return self.connection.commit()
-    
+
     # set value in given column
-    def set_value(self, user_id: int, column: str, value: None):
-        self.cursor.execute(f'UPDATE users SET {column} = \'{value}\' WHERE user_id = {user_id}')
+    def set_value(self, user_id: int | str, column: str, value):
+        self.cursor.execute(f"UPDATE users SET {column} = ? WHERE user_id = ?", (value, user_id))
         return self.connection.commit()
 
     # get value from given column
-    def get_value(self, user_id: int, column: str):
-        result = self.cursor.execute(f'SELECT {column} FROM users WHERE user_id = {user_id}')
+    def get_value(self, user_id: int | str, column: str):
+        result = self.cursor.execute(f'SELECT {column} FROM users WHERE user_id = ?', (user_id,))
         return result.fetchone()[0]
 
     # get all values of given column

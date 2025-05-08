@@ -1,8 +1,7 @@
-import requests, os, time, logging, dotenv, json
+import os, time, dotenv, json
 import telebot as tb
-from bs4 import BeautifulSoup
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from typing import Literal
+from typing import Literal, cast
 
 # local files
 import logger, exception_handler
@@ -30,7 +29,7 @@ else:
         # mode: 'polling' OR 'webhook'
         "mode":             "polling",
         # IMPORTANT
-        # log colors use ANSI escape codes 
+        # log colors use ANSI escape codes
         # but i don't know how to put these codes in JSON
         # so, for example, instead of \x1b[30m it will be 30
         # first color is background, second is foreground
@@ -62,6 +61,7 @@ else:
     with open("config.json", 'w', encoding="utf-8") as f:
         json.dump(conf_default, f, indent=4)
     cfg = conf_default
+    bot_mode = "polling"
     # init logger
     logger.init_logger("log.log", cfg["colored_logs"], cfg["ntfy_topic"])
     log("warn", "Config.json not found! Created new config file and using it for now")
@@ -70,7 +70,7 @@ else:
 dotenv.load_dotenv()
 # get token from .env file if present
 if os.getenv("TOKEN"):
-    TOKEN = os.getenv("TOKEN")
+    TOKEN = os.getenv("TOKEN") or "NO_TOKEN_GIVEN"
 # no token given -> abort
 else:
     log("fail", "No token given, aborting...")
@@ -105,7 +105,7 @@ if not links_group or not links_lecturer or not links_room:
 def gen_message_schedule(source_type: Literal["group", "lecturer", "room"], source: str) -> str:
     data = api.get_schedule(source_type, source)
     if not data:
-        return None
+        return ""
     # generate message
     if source_type == "group":      msg = f"Расписание группы <b>{data["head"]}</b>\n"
     elif source_type == "lecturer": msg = f"Расписание преподавателя <b>{data["head"]}</b>\n"
@@ -113,9 +113,9 @@ def gen_message_schedule(source_type: Literal["group", "lecturer", "room"], sour
 
     for date, info in data["days"].items():
         if not info["lessons"] and (info["weekday"] == "Суббота" or info["weekday"] == "Воскресенье"): continue
-        
+
         msg += f"\n--------------------------\n\n{date} - <b>{info["weekday"]}</b>\n\n"
-        if source_type == "group": 
+        if source_type == "group":
             for lesson in info["lessons"]:
                 msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - {lesson["name"]} {f"({lesson["subgroup"]}) " if lesson["subgroup"] != "0" and not "Иностранный язык" in lesson["name"] else ""}- <i>{lesson["room"]}</i>\n"
         elif source_type == "lecturer":
@@ -144,6 +144,7 @@ kb_source_schedule = gm_schedule_sourcetype()
 def gm_schedule_source(source_type: Literal["group", "lecturer", "room"]):
     markup = InlineKeyboardMarkup()
     markup.row_width = 3
+    keys = []
     if source_type == "group":      keys = list(links_group.keys())
     if source_type == "lecturer":   keys = list(links_lecturer.keys())
     if source_type == "room":       keys = list(links_room.keys())
@@ -151,7 +152,7 @@ def gm_schedule_source(source_type: Literal["group", "lecturer", "room"]):
 
     for n in range(len(keys)):
         IKB_list.append(InlineKeyboardButton(keys[n], callback_data=keys[n]))
-    
+
     markup.add(*IKB_list)
     return markup
 kb_schedule = gm_schedule_source("group")
@@ -171,10 +172,11 @@ def is_spam_or_ungroupped(uid: int, check_type: Literal["schedule", "group", "pi
     return False
 
 # check user
-def checkUser(uid : str, uname : str):
+def checkUser(uid: int | str, uname: str):
     # check if user already exists
     if db.user_exists(uid):
         if db.get_value(uid, 'username') != uname:
+            print(f"'{db.get_value(uid, 'username')}', '{uname}'")
             db.set_value(uid, 'username', uname)
             log("trash", f"Updated {uid} username: {uname}")
     # otherwise add new user to database
@@ -212,7 +214,7 @@ def bot_schedule(message) -> None:
     log("info", f"/schedule - {uid} ({uname})")
     if is_spam_or_ungroupped(uid, check_type="schedule"):
         return
-    
+
     send_schedule(uid, "group", db.get_value(uid, "user_group"))
     return
 
@@ -245,15 +247,16 @@ def callback_query(call) -> None:
     uid = call.message.chat.id
     uname = call.message.chat.username
     cd = call.data
+    # ctext = call.message.text
     dbid = db.get_value(uid, "id")
 
-    cq_action = ''
+    cq_action = ""
     if   "Выберите свою группу:" in call.message.text:          cq_action = "group_pickup"
     elif "Выберите источник расписания:" in call.message.text:  cq_action = "scheduleby_typeSelect"
     elif "Выберите группу:" in call.message.text:               cq_action = "scheduleby_group"
     elif "Выберите преподавателя:" in call.message.text:        cq_action = "scheduleby_lecturer"
     elif "Выберите аудиторию:" in call.message.text:            cq_action = "scheduleby_room"
-    
+
     # scheduleby source type selected
     if cq_action == "scheduleby_typeSelect":
         bot.delete_message(uid, call.message.id)
@@ -267,9 +270,9 @@ def callback_query(call) -> None:
     # get schedule by group
     elif "scheduleby" in cq_action:
         bot.delete_message(uid, call.message.id)
-        source_type = cq_action.split("_")[1]
+        source_type = cast(Literal["group", "lecturer", "room"], cq_action.split("_")[1])
         send_schedule(uid, source_type, cd)
-    
+
     # Group pickup request
     elif cq_action == "group_pickup":
         # check if using commands too fast (spamming)
@@ -285,7 +288,7 @@ def callback_query(call) -> None:
         # why the fuck it did not set a group :sob:
         else:
             log("fail", f"What the actual fuck happened (group for {uid} is not set after trying to set it) ({uname}, {dbid})")
-    
+
     # Callback query is empty wtf
     elif cq_action == '':
         bot.send_message(uid, 'Не могу выполнить запрос!')
@@ -300,7 +303,7 @@ def callback_query(call) -> None:
 # ping command
 @bot.message_handler(commands=["ping"])
 def bot_ping(message):
-    uid = message.chat.id
+    uid= message.chat.id
     uname = message.chat.username
     dbid = db.get_value(uid, "id")
     checkUser(uid, uname)
@@ -308,10 +311,10 @@ def bot_ping(message):
     # check for spam
     if is_spam_or_ungroupped(uid, check_type="ping"):
         return
-    
-    mes = bot.send_message(uid, f"<u>Текущее состояние сайта</u>: <b>ожидание...</b>\n<u>Код статуса</u>: <b>ожидание...</b>\n<u>Время отклика</u>: <b>ожидание...</b>", parse_mode="HTML")
+
+    mes = bot.send_message(uid, "<u>Текущее состояние сайта</u>: <b>ожидание...</b>\n<u>Код статуса</u>: <b>ожидание...</b>\n<u>Время отклика</u>: <b>ожидание...</b>", parse_mode="HTML")
     db.set_value(uid, 'last_ping_request_time', time.time())
-    
+
     response = api.ping(link=cfg["links"]["index"])
     bot.edit_message_text(f"<u>Текущее состояние сайта</u>: <b>{response["status"]}</b>\n<u>Код статуса</u>: <b>{response["code"]}</b>\n<u>Время отклика</u>: <b>{response["time"]} сек.</b>", uid, mes.id, parse_mode="HTML")
     log("ok", f"/ping code: {response["code"]} - {uid}")
@@ -334,7 +337,7 @@ def announcement(message, file_id = ''):
     # check if in admin list
     if (str(message.chat.id) not in cfg["admins"]):
         return
-    
+
     # get text of message
     if (file_id != ''):
         # message has image
@@ -380,7 +383,7 @@ def announcement(message, file_id = ''):
             except:
                 # excluded ID not found
                 log("warn", f"{ex_id} not found in database!")
-    
+
     # log   :exploding_head:
     log("trash", f"Sending an announcement to:\n{str(ann_ids)}")
 
@@ -396,7 +399,7 @@ def announcement(message, file_id = ''):
         except:
             # failed to send to some user ( chat not found most likely )
             log("warn", f"Failed to send announcement to {id}")
-    
+
     # distribution complete
     log("ok", f"Sent announcement:\n{ann_mes}")
 
@@ -427,8 +430,11 @@ if bot_mode == "webhook":
         try:
             if request.stream:
                 update = tb.types.Update.de_json(request.stream.read().decode("utf-8"))
-                bot.process_new_updates([update])
-                return "OK", 200
+                if update is not None:
+                    bot.process_new_updates([update])
+                    return "OK", 200
+                else:
+                    return "No data", 400
             else:
                 log("warn", "Webhook: invalid request")
                 return "No data", 400
@@ -445,7 +451,7 @@ if bot_mode == "webhook":
         except Exception as e:
             log("fail", f"Failed to set webhook: {e}")
             exit(3)
-    
+
     set_webhook()
     if __name__ == "__main__":
         try:
