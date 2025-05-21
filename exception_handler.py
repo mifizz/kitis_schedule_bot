@@ -1,55 +1,65 @@
-import requests, time
-import telebot as tb
+import requests, telebot, time
+from typing import Literal
 from logger import log
+import kitis_api as api
 
-TOKEN: str = None
+TOKEN = ""
 
-def set_token(bot_token: str):
+def set_token(token: str) -> None:
+    """Set the bot token globally"""
     global TOKEN
-    TOKEN = bot_token
+    TOKEN = token
 
-class BotExceptionHandler(tb.ExceptionHandler):
-    last_apiexception_time = 0.0
-    last_readtimeout_time = 0.0
-    def handle(self, exception):
-        # API HTTP exception
-        if type(exception) == tb.apihelper.ApiTelegramException:
-            # get error code
-            error_code = str(exception).split("Error code: ")[1].split(". Description")[0]
+class BotExceptionHandler(telebot.ExceptionHandler):
+    """Custom exception handler. Handles Telegram and requests exceptions"""
+    last_error_time: float = 0.0
+    log_error_cooldown: float = 20.0
 
-            # check if 502 or 429 error occurrs again within 20 seconds
-            if (error_code == "502" or error_code == "429") and time.time() - self.last_apiexception_time > 20:
-                log("fail", f"HTTP request error ({error_code})", True, f"HTTP request returned {error_code}", "e")
-                self.last_apiexception_time = time.time()
-            elif (error_code == "502" or error_code == "429"):
-                log("trash", f"HTTP request error ({error_code})")
-            # other tg api exceptions
-            else:
-                log("fail", f"{exception}", True, f"telegram api error ({error_code})", 'e')
-        # connection timeout exception
-        elif type(exception) == requests.ConnectTimeout:
-            # removing useless text
-            e = str(exception).split("ConnectionPool(")[1].split("): Max retries")[0]       # host='...', port=...
-            timeout = str(exception).split("connect timeout=")[1].removesuffix(")\'))")     # set timeout in seconds
-            log("fail", f"connection timed out ({timeout}) // {e}")
-        # read timeout exception
-        elif type(exception) == requests.ReadTimeout:
-            # check if read timeout error occurrs again within 60 seconds
-            if time.time() - self.last_readtimeout_time > 60:
-                # removing useless text
-                e = str(exception).split("ConnectionPool(")[1].split("): Read")[0]          # host='...', port=...
-                timeout = str(exception).split("read timeout=")[1].removesuffix(')')        # set timeout in seconds
-                log("fail", f"read timed out ({timeout}): {e}", True, f"read timed out ({timeout}) // {e}")
-                self.last_readtimeout_time = time.time()
-            else:
-                log("trash", "read timed out again")
-        # telegram api HTTPConnectionPool error (network is unreachable)
-        elif str(exception).count(f"{TOKEN}") > 0:
-            e = str(exception)
-            e = e.replace(f"{TOKEN}", "<BOT_TOKEN>")
-            log("fail", f"{e}", True, "Telegram API HTTPConnectionPool", 'e')
-        # other exceptions
-        # if you got these you probably cooked up
+    def handle(self, exception) -> Literal[False]:
+        """Main handle method."""
+        sanitized_message = self._sanitize_token(str(exception))
+
+        if isinstance(exception, telebot.apihelper.ApiException):
+            self._handle_telegram_exception(exception, sanitized_message)
+        elif isinstance(exception, requests.exceptions.RequestException):
+            self._handle_requests_exception(exception, sanitized_message)
         else:
-            log("fail", f"\"{exception}\", exception type: {type(exception)}", True, 'you cooked', 'e')
-        return exception
+            self._handle_generic_exception(exception, sanitized_message)
+        return False
+
+    def _error_spam(self) -> bool:
+        return time.time() - self.last_error_time < self.log_error_cooldown
+
+    def _sanitize_token(self, mes: str) -> str:
+        """Replace bot token in exception message with <BOT_TOKEN>"""
+        return mes.replace(TOKEN, "<BOT_TOKEN>") if TOKEN else mes
+
+    def _handle_telegram_exception(self, e: telebot.apihelper.ApiException, mes: str) -> None:
+        """Handle Telegram API exceptions"""
+        # i will expand it later because i'm too lazy right now
+        exception_type: str = type(e).__name__
+        if not self._error_spam():
+            log("fail", f"{exception_type}: {mes}", True, "Telegram API error", 'e')
+            self.last_error_time = time.time()
+        else:
+            log("trash", f"{exception_type}: {mes}")
+
+    def _handle_requests_exception(self, e: requests.exceptions.RequestException, mes: str) -> None:
+        """Handle requests exceptions"""
+        # i will expand it later because i'm too lazy right now
+        exception_type: str = type(e).__name__
+        if not self._error_spam():
+            log("fail", f"{exception_type}: {mes}", True, "Requests error", 'e')
+            self.last_error_time = time.time()
+        else:
+            log("trash", f"{exception_type}: {mes}")
+        pass
+
+    def _handle_generic_exception(self, e: Exception, mes: str) -> None:
+        """Handle all other uncaught exceptions"""
+        exception_type: str = type(e).__name__
+        if not self._error_spam():
+            log("fail", f"{exception_type}: {mes}", True, "Uncaught exception", 'e')
+            self.last_error_time = time.time()
+        else:
+            log("trash", f"{exception_type}: {mes}")
