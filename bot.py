@@ -443,8 +443,8 @@ if bot_mode == "webhook":
                 log("warn", "Webhook: invalid request")
                 return "No data", 400
         except Exception as e:
-            log("fail", f"Webhook: error - {e}")
-            return "Error", 500
+            log("fail", f"Webhook: error - {e}. Skipping...")
+            return "Error", 202 # it should be 500, but otherwise errors will be continious in certain circumstances
 
     def set_webhook():
         try:
