@@ -78,7 +78,8 @@ else:
 # initialize bot
 try:
     exception_handler.set_token(TOKEN)
-    bot = tb.TeleBot(TOKEN, exception_handler=BotExceptionHandler(), threaded=False)
+    handler = BotExceptionHandler()
+    bot = tb.TeleBot(TOKEN, exception_handler=handler, threaded=False)
     # remove webhook if exists
     bot.remove_webhook()
 except Exception as e:
@@ -418,6 +419,9 @@ def debug_bot_test(message) -> None:
     if str(uid) not in cfg["admins"]:
         return
     # here i can test anything i want
+    # yeah i will now crash the bot with two lines of code :tada:
+    l = []
+    l[1] -= 1
     return
 
 # initialize flask and webhook if using webhook mode
@@ -458,7 +462,7 @@ if bot_mode == "webhook":
             app.run(host="0.0.0.0", port=8443, debug=False)
             exit()
         except Exception as e:
-            log("fail", f"Flask app crashed with error: {e}")
+            log("fail", f"Flask app crashed.")
             exit(4)
 
 # launch polling if using polling mode
@@ -470,7 +474,7 @@ elif bot_mode == "polling" and __name__ == "__main__":
             bot.polling(timeout=10, long_polling_timeout=20)
             print("\nHit CTRL+C again to stop bot")
         except Exception as e:
-            log("fail", f"Bot crashed with error: {e}, exception type: {type(e)}")
+            log("fail", f"Bot crashed.")
         try:
             time.sleep(2)
         except (KeyboardInterrupt):

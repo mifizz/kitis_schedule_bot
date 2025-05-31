@@ -1,4 +1,4 @@
-import requests, telebot, time
+import requests, telebot, time, re
 from typing import Literal
 from logger import log
 import kitis_api as api
@@ -17,49 +17,62 @@ class BotExceptionHandler(telebot.ExceptionHandler):
 
     def handle(self, exception) -> Literal[False]:
         """Main handle method."""
-        sanitized_message = self._sanitize_token(str(exception))
-
         if isinstance(exception, telebot.apihelper.ApiException):
-            self._handle_telegram_exception(exception, sanitized_message)
+            self._handle_telegram_exception(exception)
         elif isinstance(exception, requests.exceptions.RequestException):
-            self._handle_requests_exception(exception, sanitized_message)
+            self._handle_requests_exception(exception)
         else:
-            self._handle_generic_exception(exception, sanitized_message)
+            self._handle_generic_exception(exception)
         return False
+
+    def _log_exception(self, text: str, ntfy_title: str) -> None:
+        text = self._sanitize_token(text)
+        if not self._error_spam():
+            self.last_error_time = time.time()
+            log("fail", text, True, ntfy_title, 'e')
+        else:
+            log("trash", text)
 
     def _error_spam(self) -> bool:
         return time.time() - self.last_error_time < self.log_error_cooldown
 
-    def _sanitize_token(self, mes: str) -> str:
+    def _sanitize_token(self, text: str) -> str:
         """Replace bot token in exception message with <BOT_TOKEN>"""
-        return mes.replace(TOKEN, "<BOT_TOKEN>") if TOKEN else mes
+        return text.replace(TOKEN, "<BOT_TOKEN>") if TOKEN else text
 
-    def _handle_telegram_exception(self, e: telebot.apihelper.ApiException, mes: str) -> None:
+    def _extract_regex(self, pattern: str, source: str) -> list[str] | None:
+        match = re.search(pattern, source)
+        return list(match.groups()) if match else None
+
+    def _handle_telegram_exception(self, e: telebot.apihelper.ApiException) -> None:
         """Handle Telegram API exceptions"""
-        # i will expand it later because i'm too lazy right now
-        exception_type: str = type(e).__name__
-        if not self._error_spam():
-            log("fail", f"{exception_type}: {mes}", True, "Telegram API error", 'e')
-            self.last_error_time = time.time()
+        text: str = "empty exception message"
+        if isinstance(e, telebot.apihelper.ApiTelegramException):
+            text = f"TgAPI Telegram ({e.error_code}): {e.description}"
+        elif isinstance(e, telebot.apihelper.ApiHTTPException):
+            text = f"TgAPI HTTP ({e.result.status_code}): {e.result.reason}"
+        elif isinstance(e, telebot.apihelper.ApiInvalidJSONException):
+            match = self._extract_regex(r"Response body:\n(.+)", str(e))
+            text = f"TgAPI Invalid JSON:\n{match[0]}" if match else f"TgAPI Invalid JSON: {e}"
         else:
-            log("trash", f"{exception_type}: {mes}")
+            match = self._extract_regex(r"A request to the Telegram API was unsuccessful. (.+)", str(e))
+            text = f"TgAPI: {match[0]}" if match else f"TgAPI: {e}"
+        self._log_exception(text, "Telegram API error")
 
-    def _handle_requests_exception(self, e: requests.exceptions.RequestException, mes: str) -> None:
+    def _handle_requests_exception(self, e: requests.exceptions.RequestException) -> None:
         """Handle requests exceptions"""
-        # i will expand it later because i'm too lazy right now
-        exception_type: str = type(e).__name__
-        if not self._error_spam():
-            log("fail", f"{exception_type}: {mes}", True, "Requests error", 'e')
-            self.last_error_time = time.time()
+        e_type: str = type(e).__name__
+        text: str = "empty exception message"
+        if isinstance(e, requests.exceptions.Timeout):
+            match = self._extract_regex(r"host='([^']+)'.*timeout=(\d+)", str(e))
+            text = f"{e_type} ({match[1]}): {match[0]}" if match else f"{e_type}: {e}"
+        elif isinstance(e, requests.exceptions.ConnectionError):
+            match = self._extract_regex(r"host='([^']+)'.*url: (\S+)", str(e))
+            text = f"{e_type}: {match[0]}{match[1]}" if match else f"{e_type}: {e}"
         else:
-            log("trash", f"{exception_type}: {mes}")
-        pass
+            text = f"{type(e).__name__}: {e}"
+        self._log_exception(text, "Requests error")
 
-    def _handle_generic_exception(self, e: Exception, mes: str) -> None:
+    def _handle_generic_exception(self, e: Exception) -> None:
         """Handle all other uncaught exceptions"""
-        exception_type: str = type(e).__name__
-        if not self._error_spam():
-            log("fail", f"{exception_type}: {mes}", True, "Uncaught exception", 'e')
-            self.last_error_time = time.time()
-        else:
-            log("trash", f"{exception_type}: {mes}")
+        self._log_exception(f"{type(e).__name__}: {e}", "Uncaught exception")
