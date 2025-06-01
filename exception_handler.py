@@ -2,6 +2,7 @@ import requests, telebot, time, re
 from typing import Literal
 from logger import log
 import kitis_api as api
+import regex_helper as rh
 
 TOKEN = ""
 
@@ -31,7 +32,7 @@ class BotExceptionHandler(telebot.ExceptionHandler):
             self.last_error_time = time.time()
             log("fail", text, True, ntfy_title, 'e')
         else:
-            log("trash", text)
+            log("fail", text)
 
     def _error_spam(self) -> bool:
         return time.time() - self.last_error_time < self.log_error_cooldown
@@ -39,10 +40,6 @@ class BotExceptionHandler(telebot.ExceptionHandler):
     def _sanitize_token(self, text: str) -> str:
         """Replace bot token in exception message with <BOT_TOKEN>"""
         return text.replace(TOKEN, "<BOT_TOKEN>") if TOKEN else text
-
-    def _extract_regex(self, pattern: str, source: str) -> list[str] | None:
-        match = re.search(pattern, source)
-        return list(match.groups()) if match else None
 
     def _handle_telegram_exception(self, e: telebot.apihelper.ApiException) -> None:
         """Handle Telegram API exceptions"""
@@ -52,10 +49,10 @@ class BotExceptionHandler(telebot.ExceptionHandler):
         elif isinstance(e, telebot.apihelper.ApiHTTPException):
             text = f"TgAPI HTTP ({e.result.status_code}): {e.result.reason}"
         elif isinstance(e, telebot.apihelper.ApiInvalidJSONException):
-            match = self._extract_regex(r"Response body:\n(.+)", str(e))
+            match = rh.extract_regex(r"Response body:\n(.+)", str(e))
             text = f"TgAPI Invalid JSON:\n{match[0]}" if match else f"TgAPI Invalid JSON: {e}"
         else:
-            match = self._extract_regex(r"A request to the Telegram API was unsuccessful. (.+)", str(e))
+            match = rh.extract_regex(r"A request to the Telegram API was unsuccessful. (.+)", str(e))
             text = f"TgAPI: {match[0]}" if match else f"TgAPI: {e}"
         self._log_exception(text, "Telegram API error")
 
@@ -64,10 +61,10 @@ class BotExceptionHandler(telebot.ExceptionHandler):
         e_type: str = type(e).__name__
         text: str = "empty exception message"
         if isinstance(e, requests.exceptions.Timeout):
-            match = self._extract_regex(r"host='([^']+)'.*timeout=(\d+)", str(e))
+            match = rh.extract_regex(r"host='([^']+)'.*timeout=(\d+)", str(e))
             text = f"{e_type} ({match[1]}): {match[0]}" if match else f"{e_type}: {e}"
         elif isinstance(e, requests.exceptions.ConnectionError):
-            match = self._extract_regex(r"host='([^']+)'.*url: (\S+)", str(e))
+            match = rh.extract_regex(r"host='([^']+)'.*url: (\S+)", str(e))
             text = f"{e_type}: {match[0]}{match[1]}" if match else f"{e_type}: {e}"
         else:
             text = f"{type(e).__name__}: {e}"

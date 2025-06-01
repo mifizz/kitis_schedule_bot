@@ -6,5 +6,6 @@
 !group_parser.py
 !kitis_api.py
 !logger.py
+!regex_helper.py
 !README.md
 !requirements.txt

@@ -75,7 +75,7 @@ def update_session() -> None:
     s.headers.update(headers)
 
 # tries a connection to link
-def try_request(link: str) -> requests.Response:
+def try_request(link: str) -> requests.Response | None:
     global s
 
     try:
@@ -88,9 +88,9 @@ def try_request(link: str) -> requests.Response:
         else:
             return r
 
-# session_test() using this method if getting timeout or status code 401/403 
+# session_test() using this method if getting timeout or status code 401/403
 # basically just tries to connect to host 3 times
-def retry_connection(link: str) -> requests.Response:
+def retry_connection(link: str) -> requests.Response | None:
     global s
 
     log("warn", "Got timeout, retrying...")
@@ -169,7 +169,7 @@ def ping(link: str) -> dict:
 def get_source_links(source: Literal["s_group", "s_lecturer", "s_room", "r_group", "r_lecturer"]) -> dict:
     result = dict()
     link = config["links"][f"{source}"]
-    
+
     r = try_request(link)
     if not r:
         return None
@@ -185,7 +185,7 @@ def get_source_links(source: Literal["s_group", "s_lecturer", "s_room", "r_group
         group = td[1].find("a", class_="z0")
         group_name = group.text
         group_link = group.get("href")
-        
+
         result[f"{group_name}"] = f"{config["links"]["base"]}{group_link}"
 
     return result
@@ -230,7 +230,7 @@ def parse_soup_schedule(soup: BeautifulSoup) -> dict:
     header = soup.find("h1").text
     update_time = soup.find("div", class_="ref").text.strip()
     days = dict()
-    
+
     # search through a table
     trows = soup.find("table", class_="inf").find_all("tr")
     # start from 4th row, because this html is fucking bullshit and i can't fix it
@@ -243,7 +243,7 @@ def parse_soup_schedule(soup: BeautifulSoup) -> dict:
         if len(tds) == 4 and len(tds[0].text) > 1:
             current_date, weekday_short = tds[0].get_text(separator=" ").split()
             weekday = t_days[weekday_short]
-            
+
             days[current_date] = dict()
             days[current_date]["weekday"] = weekday
             days[current_date]["lessons"] = list()
@@ -261,13 +261,13 @@ def parse_soup_schedule(soup: BeautifulSoup) -> dict:
         elif len(tds) == 3 and len(tds[0].text) > 1:
             current_date, weekday_short = tds[0].get_text(separator=" ").split()
             weekday = t_days[weekday_short]
-            
+
             days[current_date] = dict()
             days[current_date]["weekday"] = weekday
             days[current_date]["lessons"] = list()
-            
+
             lesson_number = tds[1].text
-            
+
             td_with_lesson = tds[2].find_all("a")
             if td_with_lesson:
                 days[current_date] = append_schedule_lesson(days[current_date], current_date, td_with_lesson, lesson_number, "0")
@@ -283,7 +283,7 @@ def parse_soup_schedule(soup: BeautifulSoup) -> dict:
             td_with_lesson = tds[2].find_all("a")
             if td_with_lesson:
                 days[current_date] = append_schedule_lesson(days[current_date], current_date, td_with_lesson, lesson_number, "2")
-        
+
         # current row has only lesson and its number
         elif len(tds) == 2:
             lesson_number = tds[0].text
@@ -291,7 +291,7 @@ def parse_soup_schedule(soup: BeautifulSoup) -> dict:
             td_with_lesson = tds[1].find_all("a")
             if td_with_lesson:
                 days[current_date] = append_schedule_lesson(days[current_date], current_date, td_with_lesson, lesson_number, "0")
-    
+
     # fill result dictionary
     result["header"] = header
     result["update_time"] = update_time
@@ -299,7 +299,7 @@ def parse_soup_schedule(soup: BeautifulSoup) -> dict:
 
     return result
 
-def get_schedule(source_type: Literal["group", "lecturer", "room"], source: str) -> dict:
+def get_schedule(source_type: Literal["group", "lecturer", "room"], source: str) -> dict | None:
     result = dict()
     link = links[f"s_{source_type}"][source]
 
@@ -364,13 +364,13 @@ def get_schedule(source_type: Literal["group", "lecturer", "room"], source: str)
 # init method
 def init_api() -> None:
     global config
-    
+
     with open("config.json", 'r') as f:
         config = json.load(f)
-    
+
     update_session()
     session_test()
-    
+
     with open("links.json", 'w') as f:
         links["s_group"]      = get_source_links("s_group")
         links["s_lecturer"]   = get_source_links("s_lecturer")
@@ -381,7 +381,7 @@ def init_api() -> None:
 
 # main
 if __name__ == "__main__":
-    logger.init_logger("log.log", True)
+    logger.init_logger("log.log", "debug.log", True)
     init_api()
 
     # print(f"{get_schedule("group", "ИСс24-1")}")

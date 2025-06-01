@@ -16,7 +16,7 @@ if os.path.exists("config.json"):
     with open("config.json", 'r') as f:
         cfg = json.load(f)
     # init logger
-    logger.init_logger("log.log", cfg["colored_logs"], cfg["ntfy_topic"])
+    logger.init_logger("log.log", "debug.log", cfg["colored_logs"], cfg["ntfy_topic"])
     # choose mode
     bot_mode = cfg["mode"]
     if not bot_mode or (bot_mode != "polling" and bot_mode != "webhook"):
@@ -63,7 +63,7 @@ else:
     cfg = conf_default
     bot_mode = "polling"
     # init logger
-    logger.init_logger("log.log", cfg["colored_logs"], cfg["ntfy_topic"])
+    logger.init_logger("log.log", "debug.log", cfg["colored_logs"], cfg["ntfy_topic"])
     log("warn", "Config.json not found! Created new config file and using it for now")
 
 # load .env file if present
