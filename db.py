@@ -1,6 +1,6 @@
 import sqlite3
-
 from requests import check_compatibility
+from typing import Union
 
 class database:
 
@@ -37,28 +37,28 @@ CREATE TABLE IF NOT EXISTS users (
         return self.connection.commit()
 
     # Check if user exists
-    def user_exists(self, user_id: int | str):
+    def user_exists(self, user_id: Union[int, str]):
         uid = f"{user_id}"
         result = self.cursor.execute('SELECT id FROM users WHERE user_id = ?', (user_id,))
         return bool(len(result.fetchall()))
 
     # Check if user has group
-    def user_has_group(self, user_id: int | str):
+    def user_has_group(self, user_id: Union[int, str]):
         result = self.cursor.execute('SELECT user_group FROM users WHERE user_id = ?', (user_id,))
         return bool(len(result.fetchall()))
 
     # Add user to database
-    def add_user(self, user_id: int | str, username):
+    def add_user(self, user_id: Union[int, str], username):
         self.cursor.execute('INSERT INTO users (`user_id`, `username`, `last_schedule_request_time`, `last_group_request_time`) VALUES (?, ?, ?, ?)', (user_id, username, 0, 0))
         return self.connection.commit()
 
     # set value in given column
-    def set_value(self, user_id: int | str, column: str, value):
+    def set_value(self, user_id: Union[int, str], column: str, value):
         self.cursor.execute(f"UPDATE users SET {column} = ? WHERE user_id = ?", (value, user_id))
         return self.connection.commit()
 
     # get value from given column
-    def get_value(self, user_id: int | str, column: str):
+    def get_value(self, user_id: Union[int, str], column: str):
         result = self.cursor.execute(f'SELECT {column} FROM users WHERE user_id = ?', (user_id,))
         return result.fetchone()[0]
 

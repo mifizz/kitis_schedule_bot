@@ -1,7 +1,7 @@
 import os, time, json
 import telebot as tb
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-from typing import Literal, cast
+from typing import Union, Literal, cast
 
 # local files
 import logger, exception_handler
@@ -105,25 +105,25 @@ def gen_message_schedule(source_type: Literal["group", "lecturer", "room"], sour
     if not data:
         return ""
     # generate message
-    if source_type == "group":      msg = f"Расписание группы <b>{data["head"]}</b>\n"
-    elif source_type == "lecturer": msg = f"Расписание преподавателя <b>{data["head"]}</b>\n"
-    elif source_type == "room":     msg = f"Расписание аудитории <b>{data["head"]}</b>\n"
+    if source_type == "group":      msg = f"""Расписание группы <b>{data["head"]}</b>\n"""
+    elif source_type == "lecturer": msg = f"""Расписание преподавателя <b>{data["head"]}</b>\n"""
+    elif source_type == "room":     msg = f"""Расписание аудитории <b>{data["head"]}</b>\n"""
 
     for date, info in data["days"].items():
         if not info["lessons"] and (info["weekday"] == "Суббота" or info["weekday"] == "Воскресенье"): continue
 
-        msg += f"\n--------------------------\n\n{date} - <b>{info["weekday"]}</b>\n\n"
+        msg += f"""\n--------------------------\n\n{date} - <b>{info["weekday"]}</b>\n\n"""
         if source_type == "group":
             for lesson in info["lessons"]:
-                msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - {lesson["name"]} {f"({lesson["subgroup"]}) " if lesson["subgroup"] != "0" and not "Иностранный язык" in lesson["name"] else ""}- <i>{lesson["room"]}</i>\n"
+                msg += f"""<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - {lesson["name"]} {f"({lesson['subgroup']}) " if lesson["subgroup"] != "0" and not "Иностранный язык" in lesson["name"] else ""}- <i>{lesson["room"]}</i>\n"""
         elif source_type == "lecturer":
             for lesson in info["lessons"]:
-                msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - <b>{lesson["group"]}</b> - {lesson["name"]} - <i>{lesson["room"]}</i>\n"
+                msg += f"""<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - <b>{lesson["group"]}</b> - {lesson["name"]} - <i>{lesson["room"]}</i>\n"""
         elif source_type == "room":
             for lesson in info["lessons"]:
-                msg += f"<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - {lesson["lecturer"]} - <b>{lesson["group"]}</b> - {lesson["name"]}\n"
+                msg += f"""<u>{lesson["number"]} Пара</u> - <i>{lesson["bells"]}</i> - {lesson["lecturer"]} - <b>{lesson["group"]}</b> - {lesson["name"]}\n"""
 
-    msg += f"\n--------------------------\n<i>{data["update_time"]}</i>"
+    msg += f"""\n--------------------------\n<i>{data["update_time"]}</i>"""
     return msg
 
 # generate markup for schedule source
@@ -170,7 +170,7 @@ def is_spam_or_ungroupped(uid: int, check_type: Literal["schedule", "group", "pi
     return False
 
 # check user
-def checkUser(uid: int | str, uname: str):
+def checkUser(uid: Union[int, str], uname: str):
     # check if user already exists
     if db.user_exists(uid):
         if db.get_value(uid, 'username') != uname:
@@ -279,7 +279,7 @@ def callback_query(call) -> None:
             return
         db.set_value(uid, 'last_group_request_time', time.time())
         db.set_value(uid, 'user_group', cd)
-        bot.send_message(uid, f'Вы выбрали группу {db.get_value(uid, 'user_group')}!')
+        bot.send_message(uid, f'Вы выбрали группу {db.get_value(uid, "user_group")}!')
         # check if user has group
         if db.user_has_group(uid):
             log("ok", f"Set {db.get_value(uid, 'user_group')} group for {uid} ({uname}, {dbid})")
@@ -314,8 +314,8 @@ def bot_ping(message):
     db.set_value(uid, 'last_ping_request_time', time.time())
 
     response = api.ping(link=cfg["links"]["index"])
-    bot.edit_message_text(f"<u>Текущее состояние сайта</u>: <b>{response["status"]}</b>\n<u>Код статуса</u>: <b>{response["code"]}</b>\n<u>Время отклика</u>: <b>{response["time"]} сек.</b>", uid, mes.id, parse_mode="HTML")
-    log("ok", f"/ping code: {response["code"]} - {uid}")
+    bot.edit_message_text(f"""<u>Текущее состояние сайта</u>: <b>{response["status"]}</b>\n<u>Код статуса</u>: <b>{response["code"]}</b>\n<u>Время отклика</u>: <b>{response["time"]} сек.</b>""", uid, mes.id, parse_mode="HTML")
+    log("ok", f"/ping code: {response['code']} - {uid}")
     return
 
 # ADMIN / DEBUG COMMANDS - ONLY WORKS IF SENDER IS IN ADMIN LIST (cfg -> admins)

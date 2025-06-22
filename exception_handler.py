@@ -1,4 +1,4 @@
-import requests, telebot, time, re
+import requests, telebot, time
 from typing import Literal
 from logger import log
 import kitis_api as api

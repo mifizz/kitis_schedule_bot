@@ -1,5 +1,5 @@
 import requests, json, time, logger
-from typing import Literal
+from typing import Literal, Optional, Tuple
 from bs4 import BeautifulSoup
 from fake_useragent import UserAgent
 from logger import log
@@ -75,7 +75,7 @@ def update_session() -> None:
     s.headers.update(headers)
 
 # tries a connection to link
-def try_request(link: str) -> requests.Response | None:
+def try_request(link: str) -> Optional[requests.Response]:
     global s
 
     try:
@@ -90,7 +90,7 @@ def try_request(link: str) -> requests.Response | None:
 
 # session_test() using this method if getting timeout or status code 401/403
 # basically just tries to connect to host 3 times
-def retry_connection(link: str) -> requests.Response | None:
+def retry_connection(link: str) -> Optional[requests.Response]:
     global s
 
     log("warn", "Got timeout, retrying...")
@@ -166,7 +166,7 @@ def ping(link: str) -> dict:
     return result
 
 # s_ stands for schedule, r_ for records
-def get_source_links(source: Literal["s_group", "s_lecturer", "s_room", "r_group", "r_lecturer"]) -> dict:
+def get_source_links(source: Literal["s_group", "s_lecturer", "s_room", "r_group", "r_lecturer"]) -> Optional[dict]:
     result = dict()
     link = config["links"][f"{source}"]
 
@@ -186,11 +186,11 @@ def get_source_links(source: Literal["s_group", "s_lecturer", "s_room", "r_group
         group_name = group.text
         group_link = group.get("href")
 
-        result[f"{group_name}"] = f"{config["links"]["base"]}{group_link}"
+        result[f"{group_name}"] = f"""{config["links"]["base"]}{group_link}"""
 
     return result
 
-def get_lesson_info(td_with_lesson) -> (str, str, str):
+def get_lesson_info(td_with_lesson) -> Tuple[str, str, str]:
     # these z is class names from html
     z1 = ""
     z2 = ""
@@ -299,7 +299,7 @@ def parse_soup_schedule(soup: BeautifulSoup) -> dict:
 
     return result
 
-def get_schedule(source_type: Literal["group", "lecturer", "room"], source: str) -> dict | None:
+def get_schedule(source_type: Literal["group", "lecturer", "room"], source: str) -> Optional[dict]:
     result = dict()
     link = links[f"s_{source_type}"][source]
 
@@ -323,42 +323,41 @@ def get_schedule(source_type: Literal["group", "lecturer", "room"], source: str)
         for lesson in list(data["days"][date]["lessons"]):
             number  = lesson["n"]
             bells   = t_bells_monday if info["weekday"] == "Понедельник" else t_bells_week
-            match source_type:
-                case "group":
-                    name        = lesson["z1"]
-                    room        = lesson["z2"]
-                    lecturer    = lesson["z3"]
-                    subgroup    = lesson["subgroup"]
-                    result["days"][date]["lessons"].append({
-                        "number":   number,
-                        "bells":    bells[number],
-                        "name":     name,
-                        "room":     room,
-                        "lecturer": lecturer,
-                        "subgroup": subgroup
-                    })
-                case "lecturer":
-                    group       = lesson["z1"]
-                    room        = lesson["z2"]
-                    name     = lesson["z3"]
-                    result["days"][date]["lessons"].append({
-                        "number":   number,
-                        "bells":    bells[number],
-                        "group":    group,
-                        "room":     room,
-                        "name":     name
-                    })
-                case "room":
-                    lecturer    = lesson["z1"]
-                    group       = lesson["z2"]
-                    name        = lesson["z3"]
-                    result["days"][date]["lessons"].append({
-                        "number":   number,
-                        "bells":    bells[number],
-                        "lecturer": lecturer,
-                        "group":    group,
-                        "name":     name
-                    })
+            if source_type == "group":
+                name        = lesson["z1"]
+                room        = lesson["z2"]
+                lecturer    = lesson["z3"]
+                subgroup    = lesson["subgroup"]
+                result["days"][date]["lessons"].append({
+                    "number":   number,
+                    "bells":    bells[number],
+                    "name":     name,
+                    "room":     room,
+                    "lecturer": lecturer,
+                    "subgroup": subgroup
+                })
+            elif source_type == "lecturer":
+                group       = lesson["z1"]
+                room        = lesson["z2"]
+                name     = lesson["z3"]
+                result["days"][date]["lessons"].append({
+                    "number":   number,
+                    "bells":    bells[number],
+                    "group":    group,
+                    "room":     room,
+                    "name":     name
+                })
+            elif source_type == "room":
+                lecturer    = lesson["z1"]
+                group       = lesson["z2"]
+                name        = lesson["z3"]
+                result["days"][date]["lessons"].append({
+                    "number":   number,
+                    "bells":    bells[number],
+                    "lecturer": lecturer,
+                    "group":    group,
+                    "name":     name
+                })
     return result
 
 # init method
