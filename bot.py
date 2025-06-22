@@ -1,4 +1,4 @@
-import os, time, dotenv, json
+import os, time, json
 import telebot as tb
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from typing import Literal, cast
@@ -66,13 +66,10 @@ else:
     logger.init_logger("log.log", "debug.log", cfg["colored_logs"], cfg["ntfy_topic"])
     log("warn", "Config.json not found! Created new config file and using it for now")
 
-# load .env file if present
-dotenv.load_dotenv()
-# get token from .env file if present
-if os.getenv("TOKEN"):
-    TOKEN = os.getenv("TOKEN") or "NO_TOKEN_GIVEN"
-# no token given -> abort
-else:
+# load token from private.py
+try:
+    from private import TOKEN
+except ImportError:
     log("fail", "No token given, aborting...")
     exit(1)
 # initialize bot
